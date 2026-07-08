@@ -1,0 +1,109 @@
+plugins {
+    id 'java'
+    id 'io.quarkus'
+    id 'io.freefair.lombok' version '8.4'
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+ext {
+    set('mapstructVersion', '1.5.5.Final')
+    set('lombokVersion', '1.18.30')
+    set('testcontainersVersion', '1.19.3')
+}
+
+dependencies {
+    // Quarkus Platform BOM
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+
+    // Core Quarkus
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.quarkus:quarkus-rest-jackson'
+    implementation 'io.quarkus:quarkus-arc'
+
+    // Database & ORM
+    implementation 'io.quarkus:quarkus-hibernate-orm-panache'
+    implementation 'io.quarkus:quarkus-jdbc-postgresql'
+    implementation 'io.quarkus:quarkus-agroal'
+
+    // MicroProfile JWT (reemplaza las dependencias JWT manuales)
+    implementation 'io.quarkus:quarkus-smallrye-jwt'
+    implementation 'io.quarkus:quarkus-smallrye-jwt-build'
+
+    // MapStruct
+    implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+    annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+
+    // Lombok
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok-mapstruct-binding:0.2.0"
+
+    // Validation
+    implementation 'io.quarkus:quarkus-hibernate-validator'
+
+    // Health Checks
+    implementation 'io.quarkus:quarkus-smallrye-health'
+
+    // OpenAPI/Swagger
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+
+    // Configuration
+    implementation 'io.quarkus:quarkus-config-yaml'
+
+    // Metrics
+    implementation 'io.quarkus:quarkus-micrometer-registry-prometheus'
+
+    // Security
+    implementation 'io.quarkus:quarkus-security'
+
+    // Cache
+    implementation 'io.quarkus:quarkus-cache'
+
+    // Logging
+    implementation 'io.quarkus:quarkus-logging-json'
+
+    // Scheduler
+    implementation 'io.quarkus:quarkus-scheduler'
+
+    // Testing
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.rest-assured:rest-assured'
+    testImplementation 'io.quarkus:quarkus-test-h2'
+    testImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
+    testImplementation "org.testcontainers:postgresql:${testcontainersVersion}"
+
+    // Development Tools
+    implementation 'io.quarkus:quarkus-devservices-postgresql'
+}
+
+group = 'upeu.edu.pe'
+version = '1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+test {
+    systemProperty "java.util.logging.manager", "org.jboss.logmanager.LogManager"
+    useJUnitPlatform()
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+
+    // Configuración específica para MapStruct
+    options.compilerArgs += [
+            "-Amapstruct.defaultComponentModel=cdi",
+            "-Amapstruct.unmappedTargetPolicy=WARN"
+    ]
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+}

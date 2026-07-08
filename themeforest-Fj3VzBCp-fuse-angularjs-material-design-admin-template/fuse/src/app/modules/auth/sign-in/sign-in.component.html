@@ -1,0 +1,225 @@
+<div class="flex min-h-screen">
+  <!-- Columna izquierda: Formulario -->
+  <div class="flex flex-1 flex-col justify-center px-8 py-12 md:w-1/2 bg-white">
+    <div class="mx-auto w-full max-w-sm">
+      <!-- Marca institucional -->
+      <div class="flex items-center gap-3">
+        <img class="h-11 w-auto" src="/images/logo/logo.svg" alt="UNMSM" />
+        <div class="leading-tight">
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-[#7a1620]">
+            Universidad Nacional Mayor de San Marcos
+          </p>
+          <p class="text-[11px] text-gray-500">Escuela de Posgrado · Facultad de Medicina</p>
+        </div>
+      </div>
+
+      <!-- Título -->
+      <h2 class="mt-8 text-3xl font-extrabold tracking-tight text-gray-900">
+        Inicia sesión
+      </h2>
+      <p class="mt-1 text-sm text-gray-500">
+        Sistema de Gestión de Tesis y Titulación
+      </p>
+
+      <!-- Alerta error -->
+      @if (showAlert) {
+        <div
+          class="mt-4 rounded-md p-4"
+          [class.bg-red-50]="alert.type === 'error'"
+          [class.text-red-700]="alert.type === 'error'"
+          [class.border]="true"
+          [class.border-red-200]="alert.type === 'error'"
+        >
+          {{ alert.message }}
+        </div>
+      }
+
+      <!-- Formulario -->
+      <form [formGroup]="signInForm" (ngSubmit)="signIn()" class="mt-8 space-y-8">
+
+        <!-- Usuario -->
+        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+          <mat-label>Correo o usuario</mat-label>
+          <input matInput formControlName="username" autocomplete="username" />
+          @if (signInForm.get('username')?.hasError('required') && signInForm.get('username')?.touched) {
+            <mat-error>El usuario es requerido</mat-error>
+          }
+        </mat-form-field>
+
+        <!-- Contraseña -->
+        <mat-form-field appearance="outline" class="w-full" subscriptSizing="dynamic">
+          <mat-label>Contraseña</mat-label>
+          <input
+            matInput
+            [type]="showPassword ? 'text' : 'password'"
+            formControlName="password"
+            autocomplete="current-password"
+          />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            class="!w-8 !h-8 !text-slate-400"
+            (click)="showPassword = !showPassword"
+          >
+            @if (showPassword) {
+              <mat-icon svgIcon="eye-off" class="!size-5" />
+            } @else {
+              <mat-icon svgIcon="eye" class="!size-5" />
+            }
+          </button>
+          @if (signInForm.get('password')?.hasError('required') && signInForm.get('password')?.touched) {
+            <mat-error>La contraseña es requerida</mat-error>
+          }
+        </mat-form-field>
+
+        <!-- Recuérdame y olvido -->
+        <div class="flex items-center justify-between">
+          <mat-checkbox formControlName="rememberMe" class="text-sm">
+            Recuérdame
+          </mat-checkbox>
+          <a routerLink="/forgot-password" class="text-sm font-medium text-[#7a1620] underline">
+            ¿Olvidaste la contraseña?
+          </a>
+        </div>
+
+        <!-- Botón submit -->
+        <button
+          type="submit"
+          mat-flat-button
+          class="w-full mt-4 !bg-[#7a1620] !text-white"
+          [disabled]="signInForm.disabled"
+        >
+          @if (signInForm.disabled) {
+            <mat-spinner diameter="20" class="inline-block mr-2"></mat-spinner>
+          }
+          Inicia sesión
+        </button>
+      </form>
+
+      <!-- Usuarios de prueba — SOLO DESARROLLO (ausente en el build de producción) -->
+      @if (showDevCredentials) {
+        <div class="mt-8 rounded-lg border border-amber-200 bg-amber-50/60">
+          <button
+            type="button"
+            class="w-full flex items-center justify-between px-4 py-2.5 text-left"
+            (click)="devPanelOpen = !devPanelOpen"
+          >
+            <span class="flex items-center gap-2">
+              <mat-icon svgIcon="key" class="!size-4 text-amber-600" />
+              <span class="text-sm font-medium text-amber-800">Usuarios de prueba</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wide bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded">
+                Solo desarrollo
+              </span>
+            </span>
+            <mat-icon [svgIcon]="devPanelOpen ? 'chevron-up' : 'chevron-down'" class="!size-4 text-amber-600" />
+          </button>
+
+          @if (devPanelOpen) {
+            <div class="px-3 pb-3 max-h-64 overflow-y-auto">
+              <table class="w-full text-xs">
+                <tbody>
+                  @for (c of devCredentials; track c.username) {
+                    <tr class="border-t border-amber-100" [class.bg-emerald-50]="c.destacado">
+                      <td class="py-1.5 pr-2">
+                        <p class="font-medium flex items-center gap-1.5"
+                           [class.text-emerald-700]="c.destacado" [class.text-slate-700]="!c.destacado">
+                          @if (c.destacado) { <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span> }
+                          {{ c.rol }}
+                        </p>
+                        <p class="font-mono" [class.text-emerald-600]="c.destacado" [class.text-slate-400]="!c.destacado">
+                          {{ c.username }} · {{ c.password }}
+                        </p>
+                      </td>
+                      <td class="py-1.5 text-right">
+                        <button
+                          type="button"
+                          mat-stroked-button
+                          class="!h-7 !text-xs !min-w-0 !px-3"
+                          [class.!border-emerald-300]="c.destacado"
+                          [class.!text-emerald-700]="c.destacado"
+                          [disabled]="signInForm.disabled"
+                          (click)="usar(c)"
+                        >
+                          Usar
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+
+      <p class="mt-10 text-center text-[11px] text-gray-400">
+        © {{ year }} Escuela de Posgrado · Facultad de Medicina — UNMSM
+      </p>
+    </div>
+  </div>
+
+  <!-- Columna derecha: Panel institucional -->
+  <div class="relative hidden md:flex md:w-1/2 flex-col justify-center bg-gradient-to-br from-[#4a0d12] via-[#6b121b] to-[#8a1a26] p-12 overflow-hidden">
+    <!-- SVG decorativo - círculos -->
+    <svg class="absolute inset-0 pointer-events-none" viewBox="0 0 960 540" width="100%" height="100%"
+      preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+      <g class="opacity-10" fill="none" stroke="white" stroke-width="100">
+        <circle r="234" cx="196" cy="23"></circle>
+        <circle r="234" cx="790" cy="491"></circle>
+      </g>
+    </svg>
+
+    <div class="relative z-10 w-full max-w-md">
+      <!-- Sello / nombre institucional -->
+      <p class="text-amber-300 text-xs font-semibold uppercase tracking-[0.18em]">
+        Universidad Nacional Mayor de San Marcos
+      </p>
+      <p class="mt-1 text-amber-100/70 text-sm">
+        Escuela de Posgrado · Facultad de Medicina
+      </p>
+
+      <h1 class="mt-8 text-4xl font-bold text-white leading-tight">
+        Sistema de Gestión de<br />
+        <span class="text-amber-300">Tesis y Titulación</span>
+      </h1>
+      <p class="mt-6 text-rose-100/80 text-lg leading-relaxed">
+        Plataforma para la gestión integral del proceso de tesis y titulación de
+        los programas de posgrado en Medicina: inscripción de proyectos,
+        asesorías, jurados, sustentaciones y emisión de constancias.
+      </p>
+
+      <!-- Características -->
+      <ul class="mt-10 space-y-3 text-rose-50/90 text-sm">
+        <li class="flex items-center gap-3">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10">
+            <mat-icon svgIcon="file-text" class="!size-4 text-amber-300" />
+          </span>
+          Inscripción y seguimiento de proyectos de tesis
+        </li>
+        <li class="flex items-center gap-3">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10">
+            <mat-icon svgIcon="users" class="!size-4 text-amber-300" />
+          </span>
+          Asignación de asesores y jurados
+        </li>
+        <li class="flex items-center gap-3">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10">
+            <mat-icon svgIcon="calendar-check" class="!size-4 text-amber-300" />
+          </span>
+          Programación de sustentaciones
+        </li>
+        <li class="flex items-center gap-3">
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10">
+            <mat-icon svgIcon="graduation-cap" class="!size-4 text-amber-300" />
+          </span>
+          Emisión de constancias y titulación
+        </li>
+      </ul>
+    </div>
+
+    <p class="absolute bottom-6 left-12 right-12 text-rose-200/50 text-xs">
+      Escuela de Posgrado — Facultad de Medicina · UNMSM
+    </p>
+  </div>
+</div>

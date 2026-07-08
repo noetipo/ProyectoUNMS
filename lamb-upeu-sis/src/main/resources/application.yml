@@ -1,0 +1,221 @@
+quarkus:
+  arc:
+    unremovable-types:
+      - "unmsm.edu.pe.security.infrastructure.filters.JwtAuthenticationFilter"
+    exclude-types: none
+
+  datasource:
+    db-kind: postgresql
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:12345678}
+    jdbc:
+      url: jdbc:postgresql://localhost:5433/${DB_NAME:quarkus_db}
+
+  hibernate-orm:
+    database:
+      generation: update
+    log:
+      sql: true
+
+  devservices:
+    enabled: false
+
+  http:
+    port: 8080
+    cors:
+      ~: true
+      origins: "*"
+      headers: "*"
+      methods: "*"
+
+  log:
+    level: INFO
+    category:
+      "unmsm.edu.pe": DEBUG
+      "io.quarkus.arc": DEBUG
+      "io.quarkus.security": DEBUG
+      "io.quarkus.resteasy": DEBUG
+      "org.jboss.resteasy": DEBUG
+      "io.quarkus.vertx.http": DEBUG
+      # ✅ AÑADIDO: Debug para JWT
+      "io.smallrye.jwt": DEBUG
+      "io.quarkus.smallrye.jwt": DEBUG
+
+  security:
+    jaxrs:
+      deny-unannotated-endpoints: false
+    auth:
+      enabled-in-dev-mode: false
+
+  # ✅ AÑADIDO: Configuración SmallRye JWT
+  smallrye-jwt:
+    enabled: false
+    # Tu JWT usa "role" (string), no "groups" (array)
+    roles:
+      roles-claim-path: role
+
+  smallrye-openapi:
+    path: /swagger-ui
+    ui:
+      always-include: true
+
+  smallrye-health:
+    root-path: "/health"
+    ui:
+      always-include: false
+
+  jackson:
+    write-dates-as-timestamps: false
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+  hibernate-validator:
+    method-validation:
+      allow-overriding-parameter-constraints: true
+
+  micrometer:
+    export:
+      prometheus:
+        enabled: true
+        path: "/metrics"
+
+  cache:
+    caffeine:
+      "user-cache":
+        initial-capacity: 100
+        maximum-size: 1000
+        expire-after-write: "10M"
+
+  # ✅ CONFIGURACIÓN DE MAILER PARA QUARKUS
+  mailer:
+    from: noe.tipo@gmail.com
+    host: smtp.gmail.com
+    port: 587
+    start-tls: REQUIRED
+    username: noe.tipo@gmail.com
+    password: "zlzn usht falm kyis"
+    mock: false
+    auth-methods: DIGEST-MD5 CRAM-SHA256 CRAM-SHA1 CRAM-MD5 PLAIN LOGIN
+    trust-all: false
+    bounce-address: noe.tipo@gmail.com
+    login:
+      timeout: 10s
+    pool-cleaning-period: 60s
+
+# ========================================
+# ✅ AÑADIDO: MP-JWT (MicroProfile JWT)
+# ========================================
+mp:
+  jwt:
+    verify:
+      # ✅ DEBE coincidir EXACTAMENTE con tu token
+      issuer: https://unmsm.edu.pe
+      audiences: unmsm-sis
+      # ✅ Tu JWT usa HS256 - pon tu clave secreta aquí
+      publickey: ${JWT_SECRET:a-string-secret-at-least-256-bits-long}
+      publickey.algorithm: HS256
+
+# ========================================
+# CONFIGURACIÓN JWT (tu config existente)
+# ========================================
+jwt:
+  duration: 3600
+  refresh:
+    duration: 604800
+  # ✅ AÑADIDO: Clave secreta (usa la misma que para firmar tokens)
+  secret: ${JWT_SECRET:a-string-secret-at-least-256-bits-long}
+
+# ========================================
+# CONFIGURACIÓN DE DOMINIOS
+# ========================================
+domain:
+  frontend: ${FRONTEND_URL:http://localhost:4200}
+  backend: ${BACKEND_URL:http://localhost:8080}
+
+# ========================================
+# 🌱 CONFIGURACIÓN DE SEEDERS
+# ========================================
+app:
+  seeders:
+    enabled: true
+    force: false
+  storage:
+    local:
+      base-path: ${user.home}/uploads/lamb-unmsm
+
+# ========================================
+# 📎 ALMACENAMIENTO DE ARCHIVOS (documentos de persona)
+# ========================================
+storage:
+  provider: local        # local | s3
+  max-size-bytes: 10485760            # 10 MB
+  allowed-content-types: application/pdf,image/jpeg,image/png
+  local:
+    base-path: ${STORAGE_LOCAL_PATH:${user.home}/uploads/tesis-personas}
+  s3:
+    bucket: ${S3_BUCKET:}
+    region: ${S3_REGION:us-east-1}
+
+# ========================================
+# PERFILES - DEV
+# ========================================
+"%dev":
+  quarkus:
+    mailer:
+      mock: true
+      log-rejected-recipients: true
+    log:
+      category:
+        "com.example.keycloakadapter": DEBUG
+
+  # Seeders habilitados en desarrollo
+  app:
+    seeders:
+      enabled: true
+      force: false  # Cambiar a true para actualizar datos existentes
+      dev-users: true  # SOLO DEV: crea usuarios de prueba con contraseña conocida
+
+# ========================================
+# PERFILES - TEST
+# ========================================
+"%test":
+  quarkus:
+    mailer:
+      mock: true
+    datasource:
+      db-kind: h2
+      jdbc:
+        url: jdbc:h2:mem:test
+
+  # Seeders habilitados en tests
+  app:
+    seeders:
+      enabled: true
+      force: false
+    storage:
+      local:
+        base-path: ${java.io.tmpdir}/lamb-unmsm-test
+
+# ========================================
+# PERFILES - PROD
+# ========================================
+"%prod":
+  quarkus:
+    mailer:
+      mock: false
+    log:
+      level: WARN
+      category:
+        "io.smallrye.jwt": WARN
+        "io.quarkus.smallrye.jwt": WARN
+    hibernate-orm:
+      log:
+        sql: false
+
+  # Seeders DESHABILITADOS en producción
+  app:
+    seeders:
+      enabled: false
+      force: false
