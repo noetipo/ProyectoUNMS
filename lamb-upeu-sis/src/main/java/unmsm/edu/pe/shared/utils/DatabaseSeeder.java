@@ -234,6 +234,17 @@ public class DatabaseSeeder {
                         "/admin/mi-asesoria", 3, "05"),
                 new ModuleData("38", "Dictámenes de Designación", "basic", "heroicons_outline:document-check",
                         "/admin/dictamenes", 7, "05"),
+                // ── Etapa 4 · Elaboración del proyecto ──
+                new ModuleData("40", "Expediente de tesis", "basic", "heroicons_outline:folder-open",
+                        "/admin/expediente", 8, "05"),
+                new ModuleData("41", "Proyecto en línea (editor)", "basic", "heroicons_outline:pencil-square",
+                        "/admin/mi-proyecto", 9, "05"),
+                new ModuleData("42", "Revisión de proyectos", "basic", "heroicons_outline:clipboard-document-check",
+                        "/admin/revision-proyecto", 10, "05"),
+                new ModuleData("43", "Supervisión de proyectos", "basic", "heroicons_outline:eye",
+                        "/admin/supervision-proyecto", 11, "05"),
+                new ModuleData("44", "Recepción de expedientes", "basic", "heroicons_outline:inbox",
+                        "/admin/secretaria-defensa", 12, "05"),
         };
         for (ModuleData d : data) {
             Optional<Module> existing = moduleRepository.findByCode(d.code);
@@ -295,11 +306,12 @@ public class DatabaseSeeder {
     private void seedRoleModules(List<Role> roles, List<Module> modules) {
         // roleCode -> códigos de módulo visibles para ese rol
         Map<String, List<String>> matriz = new LinkedHashMap<>();
-        matriz.put("ADMIN", List.of("01", "03", "04", "05", "20", "21", "22", "24", "25", "26", "35", "36", "37", "30", "31", "33", "38"));
-        matriz.put("SECRETARIA", List.of("20", "21", "22", "24", "25", "26", "35", "36", "37", "30", "31", "33", "38"));
+        matriz.put("ADMIN", List.of("01", "03", "04", "05", "20", "21", "22", "24", "25", "26", "35", "36", "37", "30", "31", "33", "38", "44"));
+        matriz.put("SECRETARIA", List.of("20", "21", "22", "24", "25", "26", "35", "36", "37", "30", "31", "33", "38", "44"));
         matriz.put("COORDINADOR", List.of("21", "22", "35", "36", "37", "30", "31", "33"));
-        matriz.put("ESTUDIANTE", List.of("23", "34"));
+        matriz.put("ESTUDIANTE", List.of("23", "34", "40", "41")); // + expediente + proyecto en línea
         matriz.put("DOCENTE", List.of("23", "29"));
+        matriz.put("ASESOR", List.of("23", "42"));                 // revisión de proyectos (solo asesores)
         matriz.put("JURADO", List.of("23"));
         // Gestión adicional (edición) y monitoreo (solo lectura) ven el reporte de tutores.
         matriz.put("COORD_PROG", List.of("30", "31", "33")); // registro de tema
@@ -308,7 +320,7 @@ public class DatabaseSeeder {
         matriz.put("VICEDECANO", List.of("31"));
         matriz.put("JEFE_UPG", List.of("31"));
         matriz.put("COORD_SEC", List.of("31"));
-        matriz.put("PROF_TUTOR", List.of("32")); // panel del tutor
+        matriz.put("PROF_TUTOR", List.of("32", "43")); // panel del tutor + supervisión de proyectos
 
 
         int created = 0;

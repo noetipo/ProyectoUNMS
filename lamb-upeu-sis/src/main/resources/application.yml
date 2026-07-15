@@ -7,9 +7,9 @@ quarkus:
   datasource:
     db-kind: postgresql
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:12345678}
+    password: ${DB_PASSWORD:123456}
     jdbc:
-      url: jdbc:postgresql://localhost:5433/${DB_NAME:quarkus_db}
+      url: jdbc:postgresql://localhost:5432/${DB_NAME:quarkus_db}
 
   hibernate-orm:
     database:
@@ -144,6 +144,23 @@ app:
   storage:
     local:
       base-path: ${user.home}/uploads/lamb-unmsm
+  # Herramientas de demo (seed/reset del proyecto): true en dev, false en prod
+  demo-tools-enabled: true
+
+# ========================================
+# 🔎 AUTOCOMPLETAR REFERENCIAS POR DOI (CrossRef + fallback doi.org)
+# ========================================
+doi:
+  autocompletar:
+    crossref-url: ${CROSSREF_URL:https://api.crossref.org/works}
+    resolver-url: ${DOI_RESOLVER_URL:https://doi.org}
+    openalex-url: ${OPENALEX_URL:https://api.openalex.org/works}
+    mailto: ${CROSSREF_MAILTO:posgrado@unmsm.edu.pe}
+    user-agent: "UNMSM-Tesis/1.0 (mailto:posgrado@unmsm.edu.pe)"
+    select: "title,author,container-title,volume,issue,page,issued,published-print,published-online,type,publisher"
+    connect-timeout: 6s
+    request-timeout: 12s
+    fallback-enabled: true   # si CrossRef no lo tiene, consulta doi.org (DataCite, tesis, datasets)
 
 # ========================================
 # 📎 ALMACENAMIENTO DE ARCHIVOS (documentos de persona)
@@ -214,8 +231,9 @@ storage:
       log:
         sql: false
 
-  # Seeders DESHABILITADOS en producción
+  # Seeders y herramientas de demo DESHABILITADOS en producción
   app:
     seeders:
       enabled: false
       force: false
+    demo-tools-enabled: false
