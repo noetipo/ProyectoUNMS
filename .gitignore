@@ -1,0 +1,5 @@
+# Archivos comprimidos
+*.zip
+
+# Config de IDE (IntelliJ)
+.idea/

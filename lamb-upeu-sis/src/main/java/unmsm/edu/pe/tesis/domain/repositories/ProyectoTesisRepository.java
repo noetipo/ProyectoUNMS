@@ -24,4 +24,8 @@ public interface ProyectoTesisRepository {
      *  Filas [tesisId, apPat, apMat, nombres, codigo, programa, titulo, fechaSolicitud, recibido]. */
     List<Object[]> bandejaExpedientes(String buscar, int page, int size);
     long contarBandejaExpedientes(String buscar);
+
+    /** Bandeja del coordinador: proyectos con expediente recepcionado (Etapa 5). */
+    List<Object[]> bandejaDefensa(String buscar, int page, int size);
+    long contarBandejaDefensa(String buscar);
 }

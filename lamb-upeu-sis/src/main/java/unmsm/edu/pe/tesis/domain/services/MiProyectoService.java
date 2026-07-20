@@ -62,11 +62,23 @@ public interface MiProyectoService {
     /** Sube el proyecto en versión final (PDF) para el expediente. */
     void subirProyectoFinal(byte[] contenido, String nombreOriginal, String contentType);
 
+    /** Sube el informe final de la tesis (Etapa 6 · ejecución). */
+    void subirInformeFinal(byte[] contenido, String nombreOriginal, String contentType);
+
     /** Descarga un documento propio que el estudiante subió (tipo = turnitin | proyecto-final). */
     ArchivoDescargable descargarDocumento(String tipo);
 
     /** El estudiante confirma la corrección de un ítem observado. */
     void corregirItem(String campo, String respuesta);
+
+    /** El estudiante responde (levanta) las observaciones de un revisor del proyecto (Etapa 5). */
+    void responderRevisor(UUID revisorId, String respuesta);
+
+    /** El estudiante solicita el Jurado Informante del informe final (Etapa 7). */
+    void solicitarJuradoInformante();
+
+    /** El estudiante responde (levanta) las observaciones de un miembro del Jurado Informante (Etapa 7). */
+    void responderJuradoInforme(UUID revisorId, String respuesta);
 
     /** Sube el expediente y genera la solicitud de aprobación (fin de la Etapa 4). */
     void solicitarAprobacion();

@@ -1,0 +1,263 @@
+================================================================================
+  PLAN DE PRUEBAS MANUALES — PROCESO DE TESIS UNMSM (Etapas 4 a 7)
+  Fecha: 20/07/2026
+================================================================================
+
+--------------------------------------------------------------------------------
+0. ANTES DE EMPEZAR
+--------------------------------------------------------------------------------
+- Backend (Quarkus) corriendo en   http://localhost:8080
+- Frontend (Angular) corriendo en  http://localhost:4200
+- Base de datos PostgreSQL "quarkus_db" activa.
+- Ingresar por el navegador a http://localhost:4200
+
+USUARIOS DE PRUEBA (contraseña: contra123 ; el admin usa admin123)
+  ESTUDIANTES
+    chavez.miguel   -> flujo AVANZADO (ya pasó por todas las etapas 4-7)
+    quispe.ana      -> proyecto en elaboración/revisión
+    ramos.elena     -> proyecto en revisión
+    torres.jorge    -> proyecto VACÍO (ideal para probar desde cero)
+  ASESOR
+    caceres.silvia  -> asesora de los 4 estudiantes de arriba
+  COORDINADOR
+    coordinador
+  SECRETARIA
+    secretaria
+  DOCENTES (revisores / jurado)
+    bravo.teresa, ledesma.andres, ponce.diana, cabrera.julio, rios.fernando
+  ADMIN
+    admin  (contraseña admin123)  -> ve todos los módulos
+
+BOTONES DEMO (solo visibles en modo desarrollo, arriba a la derecha del editor):
+    "Rellenar prueba"  -> llena el proyecto con datos y lo envía a revisión.
+    "Reiniciar flujo"  -> borra observaciones y deja el proyecto como no enviado.
+    En producción NO aparecen.
+
+CONSEJO: para una prueba "limpia" de principio a fin, usa torres.jorge.
+Para ver estados ya avanzados (defensa, informe, jurado), usa chavez.miguel.
+
+CÓMO PROBAR LAS CAMPANAS (notificaciones):
+    El icono de campana (arriba a la derecha) trae un número rojo con la cantidad
+    de pendientes. Al hacer clic muestra la lista; al clicar una, navega al lugar.
+
+
+================================================================================
+  ETAPA 4 — ELABORACIÓN DEL PROYECTO
+================================================================================
+
+--- 4.1  LOGIN Y MENÚ POR ROL --------------------------------------------------
+[ ] Ingresar como cada rol y confirmar que el menú lateral cambia:
+      estudiante -> "Proyecto en línea (editor)" / "Expediente de tesis"
+      asesor     -> "Revisión de proyectos" / "Ejecución de la tesis"
+      coordinador-> "Designación de revisores"
+      secretaria -> "Recepción de expedientes"
+      docente    -> "Revisión de proyectos (jurado)" / "Jurado Informante (informe)"
+    Resultado: cada rol ve solo lo que le corresponde.
+
+--- 4.2  EDITOR DEL PROYECTO (estudiante: torres.jorge) ------------------------
+[ ] Abrir "Proyecto en línea (editor)".
+[ ] Elegir ENFOQUE (Cuantitativo o Cualitativo) -> aparece un aviso de fijado y
+    el otro enfoque queda bloqueado. La sección III cambia según el enfoque.
+[ ] Escribir en varios campos (título, resumen, situación, etc.).
+    Resultado: cada campo se autoguarda al salir (blur). Recargar la página y
+    verificar que el texto persiste.
+[ ] HIPÓTESIS: en la sección III usar "Agregar hipótesis" (H1, H2...) como lista.
+[ ] OBJETIVOS ESPECÍFICOS: "Agregar objetivo" y verificar que se listan (OE1, OE2).
+[ ] La barra de AVANCE (%) sube conforme se llenan campos.
+
+--- 4.3  CRONOGRAMA POR FECHAS -------------------------------------------------
+[ ] En "V. Aspectos administrativos" pulsar "Agregar actividad".
+[ ] En el modal elegir Fecha de inicio y Fecha de fin (calendarios), fase y nombre.
+    Resultado: el Gantt se dibuja por MESES REALES (ej. "mar 26 ... ago 26") y la
+    fila muestra el rango de fechas.
+[ ] Validar que "fecha fin" no puede ser anterior a "fecha inicio".
+[ ] Agregar 2-3 actividades y una partida de presupuesto.
+[ ] Pulsar "Publicar plan" -> CONFIRMAR el aviso.
+    Resultado: el cronograma queda CONGELADO (desaparece "Agregar actividad" y la
+    papelera). Solo se puede cambiar el ESTADO de cada actividad (clic en el estado
+    PENDIENTE -> EN CURSO -> HECHA).
+
+--- 4.4  REFERENCIAS Y CITAS (lo nuevo tipo Mendeley) --------------------------
+[ ] Ir a "VI. Referencias y anexos".
+[ ] Elegir ESTILO de cita (APA / Vancouver / IEEE / Harvard / MLA / Chicago).
+    Resultado: aparece aviso de "fijar estilo"; queda con candado. Si intentas
+    cambiarlo, sale una advertencia (un documento usa un solo estilo).
+[ ] "Agregar referencia":
+      a) Por DOI: pegar  10.1038/nature12373  y pulsar "Rellenar".
+         Resultado: se llenan autores, título, año, revista, volumen, páginas.
+      b) Por título: escribir un título (ej. "metodologia de la investigacion")
+         y pulsar "Buscar". Elegir un resultado de la lista.
+      c) Por BibTeX: abrir "…o pega el BibTeX", pegar una cita BibTeX de Google
+         Scholar y pulsar "Rellenar del BibTeX" (ideal para tesis sin DOI).
+    Resultado: la referencia queda formateada según el estilo elegido.
+[ ] Verificar que el modal es RESPONSIVO (no se desborda; hace scroll interno) y
+    que al usar un método (DOI/título/BibTeX) los otros se vacían.
+
+--- 4.5  INSERTAR CITA EN EL TEXTO ---------------------------------------------
+[ ] En cualquier campo de texto largo (ej. Marco teórico) pulsar "Insertar cita".
+[ ] Elegir el FORMATO (los botones muestran una pista al pasar el mouse).
+[ ] Elegir una referencia -> se abre el mini-modal:
+      - Parentética  (García, 2023)   /   Narrativa  García (2023)
+      - Página opcional (para cita textual)  ->  (García, 2023, p. 45)
+    Resultado: la cita se inserta en el punto del cursor.
+[ ] Si aún no hay referencias, usar "Agregar nueva referencia y citar…":
+    se crea la referencia y se cita de una vez (y queda en la bibliografía).
+
+--- 4.6  GENERAR DOCUMENTO (PDF / WORD) ----------------------------------------
+[ ] Arriba a la derecha, pulsar "PDF" y "Word".
+    Resultado: se descargan el proyecto completo (carátula, secciones, cronograma,
+    presupuesto y bibliografía formateada en el estilo elegido).
+
+--- 4.7  ENVÍO A REVISIÓN + FLUJO DEL ASESOR -----------------------------------
+[ ] Con el avance al 100%, pulsar "Marcar listo para revisión".
+    (Atajo: usar "Rellenar prueba" para llenar y enviar de un clic.)
+[ ] Ingresar como ASESOR (caceres.silvia) -> "Revisión de proyectos".
+    Resultado: el estudiante aparece en la bandeja.
+[ ] Abrir el detalle. En un ítem pulsar "Observar ítem" -> escribir la observación.
+    Resultado: el ítem queda OBSERVADO y el historial se muestra desplegado.
+[ ] Campana del ESTUDIANTE: debe mostrar "Observaciones por corregir".
+[ ] Como estudiante, editar el campo observado y pulsar "Marcar como corregido"
+    -> aparece el modal "Enviar corrección" (describir qué cambiaste).
+[ ] Campana del ASESOR: debe mostrar "Correcciones por verificar".
+[ ] Como asesor, ver la corrección (contenido resaltado) y "Dar conformidad".
+[ ] Con TODOS los ítems conformes, pulsar "Emitir carta de opinión favorable".
+    Resultado: la revisión queda CERRADA (ya no se puede observar; banner verde).
+
+VALIDACIONES A PROBAR (deben mostrar mensaje de error, no romperse):
+[ ] Reenviar a revisión con observaciones sin corregir  -> bloqueado.
+[ ] Como asesor, observar/dar conformidad tras emitir la carta -> bloqueado.
+
+
+================================================================================
+  ETAPA 5 — DEFENSA DEL PROYECTO
+================================================================================
+
+--- 5.1  SECRETARÍA RECIBE EL EXPEDIENTE ---------------------------------------
+[ ] Como estudiante, subir Turnitin + proyecto versión final y "Solicitar aprobación".
+[ ] Ingresar como SECRETARIA -> "Recepción de expedientes".
+    Resultado: el expediente aparece en la bandeja.
+[ ] Campana de la SECRETARIA: "Expediente por recepcionar".
+[ ] Pulsar "Recibir y comunicar al Coordinador".
+
+--- 5.2  COORDINADOR DESIGNA 2 REVISORES ---------------------------------------
+[ ] Ingresar como COORDINADOR -> "Designación de revisores".
+    Resultado: el proyecto recepcionado aparece en la bandeja.
+[ ] "Designar revisores" -> seleccionar EXACTAMENTE 2 docentes (contador 2/2).
+    Resultado: quedan designados.
+VALIDACIONES:
+[ ] Intentar designar al ASESOR como revisor -> mensaje de error.
+[ ] Intentar designar de nuevo -> "ya tiene revisores designados".
+
+--- 5.3  REVISORES EVALÚAN CON RÚBRICA -----------------------------------------
+[ ] Ingresar como un revisor designado (ej. bravo.teresa) -> "Revisión de
+    proyectos (jurado)".
+[ ] Abrir el proyecto: a la izquierda el contenido (solo lectura), a la derecha
+    la RÚBRICA (5 criterios, escala 4/3/2/1). Calificar los 5.
+[ ] "Observar" (exige comentario) o "Dar conformidad".
+    Resultado: al dar conformidad la evaluación queda cerrada (puntaje X/20).
+VALIDACIONES:
+[ ] Observar sin comentario -> error.
+[ ] Un docente que NO es revisor no ve el proyecto en su bandeja.
+
+--- 5.4  ESTUDIANTE LEVANTA OBSERVACIONES + AMBOS APRUEBAN ----------------------
+[ ] Como estudiante, en el editor aparece el panel "Evaluación de los revisores".
+    Campana del estudiante: "Observaciones de los revisores".
+[ ] Pulsar "Levantar observación" en el revisor OBSERVADO -> escribir la respuesta.
+[ ] Campana del revisor: "El estudiante respondió tus observaciones".
+[ ] Como revisor, ver la respuesta y "Dar conformidad".
+    Resultado: cuando LOS 2 revisores dan conformidad, el editor del estudiante
+    muestra "Proyecto aprobado por los revisores — listo para la defensa".
+
+--- 5.5  COORDINADOR PROGRAMA LA DEFENSA ---------------------------------------
+[ ] Como COORDINADOR, en la bandeja el proyecto muestra revisores CONFORMES y
+    aparece el botón "Programar defensa".
+[ ] En el modal designar Presidente + 2 miembros (distintos) y fecha/hora/lugar.
+    Resultado: la asesora se agrega automáticamente al jurado; se genera un N° de
+    DICTAMEN.
+[ ] Campana del estudiante: "Defensa del proyecto programada" (con fecha y lugar).
+[ ] En el editor del estudiante aparece el banner de la defensa con el dictamen.
+VALIDACIONES:
+[ ] Programar sin revisores conformes / dos veces / presidente = miembro -> error.
+
+
+================================================================================
+  ETAPA 6 — EJECUCIÓN DE LA TESIS
+================================================================================
+
+--- 6.1  ASESOR EVALÚA EL AVANCE -----------------------------------------------
+[ ] Como estudiante, en el cronograma marcar actividades como HECHA (el % sube).
+[ ] Ingresar como ASESOR -> "Ejecución de la tesis".
+    Resultado: aparece la tesis en ejecución con el % del plan.
+[ ] Abrir el detalle: registrar un avance con la RÚBRICA DE AVANCES (4 criterios)
+    + comentario -> "Registrar avance".
+    Resultado: queda en el "Historial de avances".
+
+--- 6.2  INFORME FINAL + APROBACIÓN --------------------------------------------
+[ ] Como estudiante, en la sección "Ejecución de la tesis · Informe final"
+    pulsar "Subir informe final (PDF)".
+[ ] Marcar TODAS las actividades como HECHA (plan al 100%).
+[ ] Como ASESOR, en el detalle pulsar "Aprobar informe final".
+    Resultado: queda aprobado. Campana del estudiante: "Informe final aprobado".
+VALIDACIONES:
+[ ] Aprobar sin plan al 100% o sin informe subido -> mensaje de error.
+
+
+================================================================================
+  ETAPA 7 — JURADO INFORMANTE DEL INFORME FINAL
+================================================================================
+
+--- 7.1  ESTUDIANTE SOLICITA JURADO INFORMANTE ---------------------------------
+[ ] Como estudiante (con informe final aprobado + Turnitin subido), en la sección
+    del informe final pulsar "Solicitar Jurado Informante".
+    Resultado: queda "solicitado — en evaluación".
+VALIDACIÓN:
+[ ] Solicitar sin informe aprobado o sin Turnitin -> error.
+
+--- 7.2  COORDINADOR DESIGNA 3 JURADOS -----------------------------------------
+[ ] Como COORDINADOR, en la bandeja aparece el botón "Jurado Informante".
+[ ] Designar 3 docentes distintos. El PRIMERO es el Presidente.
+    Resultado: quedan designados (verificar rol Presidente).
+VALIDACIÓN:
+[ ] Menos de 3 / repetidos / el asesor -> error.
+
+--- 7.3  JURADO EVALÚA EL INFORME FINAL ----------------------------------------
+[ ] Ingresar como un jurado (ej. bravo.teresa) -> "Jurado Informante (informe)".
+[ ] Abrir el informe: dar un PUNTAJE (0-20) y "Observar" (con comentario) o
+    "Dar conformidad".
+[ ] Campana del estudiante: "Observaciones del Jurado Informante".
+[ ] Como estudiante, "Levantar observación" -> el jurado recibe notificación.
+[ ] Los 3 jurados dan conformidad.
+    Resultado: campana del estudiante "Informe final aprobado por el Jurado
+    Informante" y banner verde en el editor.
+
+
+================================================================================
+  CHECKLIST RÁPIDO DE HUMO (recorrido completo en 1 estudiante)
+================================================================================
+Usa torres.jorge para todo el recorrido; alterna con los otros roles.
+
+[ ] torres.jorge: llenar proyecto (o "Rellenar prueba") -> enviar a revisión
+[ ] caceres.silvia: observar -> torres corrige -> caceres conformidad -> carta
+[ ] torres.jorge: Turnitin + proyecto final -> solicitar aprobación
+[ ] secretaria: recibir expediente
+[ ] coordinador: designar 2 revisores
+[ ] bravo.teresa / cabrera.julio: evaluar rúbrica -> observar
+[ ] torres.jorge: levantar observaciones
+[ ] revisores: dar conformidad (los 2)
+[ ] coordinador: programar defensa (jurado + fecha)
+[ ] torres.jorge: marcar cronograma 100% + subir informe final
+[ ] caceres.silvia: registrar avance + aprobar informe final
+[ ] torres.jorge: solicitar Jurado Informante
+[ ] coordinador: designar 3 jurados
+[ ] jurados: evaluar -> observar -> (torres levanta) -> los 3 conformidad
+[ ] VERIFICAR: en cada cambio, la campana del rol correspondiente se enciende.
+
+================================================================================
+  NOTAS
+================================================================================
+- Si un usuario "no ve" su bandeja: normalmente es porque el proyecto aún no llegó
+  al estado que la habilita (p. ej. el revisor solo ve proyectos donde fue
+  designado; el asesor de ejecución solo ve proyectos con defensa programada).
+- Las campanas se actualizan al recargar o al reabrir el menú de notificaciones.
+- Si algo falla, anota: usuario, pantalla, acción y el mensaje mostrado.
+================================================================================

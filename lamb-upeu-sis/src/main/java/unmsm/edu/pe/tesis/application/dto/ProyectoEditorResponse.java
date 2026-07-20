@@ -65,6 +65,27 @@ public class ProyectoEditorResponse {
     private String estiloCita;          // APA | VANCOUVER | IEEE | HARVARD | MLA | CHICAGO
     private boolean estiloCitaBloqueado;
 
+    // Etapa 5 · evaluación de los revisores (Jurado Informante)
+    private List<RevisorEvalItem> evaluacionesRevisores;
+    private boolean revisoresConformes; // ambos revisores dieron conformidad
+
+    // Etapa 5 · defensa programada
+    private boolean defensaProgramada;
+    private java.time.LocalDate fechaDefensa;
+    private String horaDefensa;
+    private String lugarDefensa;
+    private String dictamenNumero;
+
+    // Etapa 6 · ejecución
+    private boolean informeFinalSubido;
+    private boolean informeFinalAprobado;
+    private List<AvanceItem> avances;
+
+    // Etapa 7 · Jurado Informante del informe final
+    private boolean juradoInformanteSolicitado;
+    private boolean informeFinalRevisado;
+    private List<InformeRevisorItem> evaluacionesJuradoInforme;
+
     // Derivados para gating de la UI
     private boolean puedeMarcarListo;   // avancePct >= 100
     private boolean todosConformes;     // todos los ítems observados están CONFORME

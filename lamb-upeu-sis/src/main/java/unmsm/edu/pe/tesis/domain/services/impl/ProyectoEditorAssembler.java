@@ -28,6 +28,12 @@ public class ProyectoEditorAssembler {
     @Inject ProyectoRevisionRepository revisionRepository;
     @Inject ProyectoRevisionEventoRepository eventoRepository;
     @Inject ProyectoReferenciaRepository referenciaRepository;
+    @Inject ProyectoRevisorRepository revisorRepository;
+    @Inject ProyectoAvanceRepository avanceRepository;
+    @Inject InformeRevisorRepository informeRevisorRepository;
+    @Inject unmsm.edu.pe.personas.domain.repositories.PersonaRepository personaRepository;
+    @Inject unmsm.edu.pe.personas.domain.repositories.DocenteRepository docenteRepository;
+    @Inject unmsm.edu.pe.personas.domain.repositories.DocenteLineaInvestigacionRepository docenteLineaRepository;
     @Inject unmsm.edu.pe.tesis.domain.repositories.DocumentoTesisRepository documentoTesisRepository;
 
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -83,6 +89,19 @@ public class ProyectoEditorAssembler {
                     .citaNarrativa(CitationFormatter.citaNarrativa(r, estilo, i + 1))
                     .build());
         }
+
+        // ── Evaluaciones de los revisores (Etapa 5) ──
+        List<RevisorEvalItem> evalRevisores = revisorRepository.listarPorProyecto(p.getId()).stream()
+                .map(rv -> RevisorEvalItem.builder()
+                        .revisorId(rv.getId()).orden(rv.getOrden())
+                        .docenteNombre(nombreDocente(rv.getDocenteId()))
+                        .docenteCategoria(categoriaDocente(rv.getDocenteId()))
+                        .docenteLinea(lineaDocente(rv.getDocenteId()))
+                        .estado(rv.getEstado() != null ? rv.getEstado().name() : null)
+                        .comentario(rv.getComentario()).respuesta(rv.getRespuestaEstudiante())
+                        .puntajeTotal(rv.getPuntajeTotal())
+                        .build())
+                .toList();
 
         // ── Revisiones + eventos ──
         List<ProyectoRevision> revEnt = revisionRepository.listarPorProyecto(p.getId());
@@ -150,6 +169,31 @@ public class ProyectoEditorAssembler {
                 .presupuestoTotal(total).revisiones(revisiones)
                 .referencias(referencias).estiloCita(estilo.name())
                 .estiloCitaBloqueado(Boolean.TRUE.equals(p.getEstiloCitaBloqueado()))
+                .evaluacionesRevisores(evalRevisores)
+                .revisoresConformes(Boolean.TRUE.equals(p.getRevisoresConformes()))
+                .defensaProgramada(Boolean.TRUE.equals(p.getDefensaProgramada()))
+                .fechaDefensa(p.getFechaDefensa()).horaDefensa(p.getHoraDefensa())
+                .lugarDefensa(p.getLugarDefensa()).dictamenNumero(p.getDictamenNumero())
+                .informeFinalSubido(documentoTesisRepository.existePorTesisYTipo(p.getTesisId(), "INFORME_FINAL_TESIS"))
+                .informeFinalAprobado(Boolean.TRUE.equals(p.getInformeFinalAprobado()))
+                .juradoInformanteSolicitado(Boolean.TRUE.equals(p.getJuradoInformanteSolicitado()))
+                .informeFinalRevisado(Boolean.TRUE.equals(p.getInformeFinalRevisado()))
+                .evaluacionesJuradoInforme(informeRevisorRepository.listarPorProyecto(p.getId()).stream()
+                        .map(rv -> InformeRevisorItem.builder()
+                                .id(rv.getId()).orden(rv.getOrden()).presidente(Boolean.TRUE.equals(rv.getPresidente()))
+                                .estado(rv.getEstado() != null ? rv.getEstado().name() : null)
+                                .puntaje(rv.getPuntaje()).comentario(rv.getComentario())
+                                .respuesta(rv.getRespuestaEstudiante()).build())
+                        .toList())
+                .avances(avanceRepository.listarPorProyecto(p.getId()).stream()
+                        .map(a -> AvanceItem.builder()
+                                .id(a.getId()).fechaEvaluacion(a.getFechaEvaluacion())
+                                .puntajeEjecucion(a.getPuntajeEjecucion()).puntajeDatos(a.getPuntajeDatos())
+                                .puntajeAnalisis(a.getPuntajeAnalisis()).puntajeInterpretacion(a.getPuntajeInterpretacion())
+                                .puntajeTotal(nzi(a.getPuntajeEjecucion()) + nzi(a.getPuntajeDatos())
+                                        + nzi(a.getPuntajeAnalisis()) + nzi(a.getPuntajeInterpretacion()))
+                                .porcentajePlan(a.getPorcentajePlan()).comentario(a.getComentario()).build())
+                        .toList())
                 .puedeMarcarListo(pct >= 100)
                 .todosConformes(Boolean.TRUE.equals(p.getListoRevision()) && !hayPendientes)
                 .build();
@@ -168,5 +212,41 @@ public class ProyectoEditorAssembler {
     /** Quita las marcas de cursiva «i»…«/i» para la vista previa en texto plano. */
     private String sinMarcas(String s) {
         return s == null ? null : s.replace("«i»", "").replace("«/i»", "");
+    }
+
+    private int nzi(Integer i) {
+        return i != null ? i : 0;
+    }
+
+    private String nombreDocente(java.util.UUID personaId) {
+        if (personaId == null) return null;
+        return personaRepository.buscarPorId(personaId).map(this::nombre).orElse(null);
+    }
+
+    private String categoriaDocente(java.util.UUID personaId) {
+        if (personaId == null) return null;
+        return docenteRepository.findByPersonaId(personaId)
+                .map(d -> d.getCategoria() != null ? categoriaLabel(d.getCategoria().name()) : null)
+                .orElse(null);
+    }
+
+    private String categoriaLabel(String cat) {
+        return switch (cat) {
+            case "PRINCIPAL" -> "Docente Principal";
+            case "ASOCIADO" -> "Docente Asociado";
+            case "AUXILIAR" -> "Docente Auxiliar";
+            default -> cat;
+        };
+    }
+
+    /** Línea de investigación principal del docente (o la primera si no hay principal). */
+    private String lineaDocente(java.util.UUID personaId) {
+        if (personaId == null) return null;
+        var lineas = docenteLineaRepository.findByDocenteId(personaId);
+        if (lineas == null || lineas.isEmpty()) return null;
+        var elegida = lineas.stream()
+                .filter(l -> Boolean.TRUE.equals(l.getEsPrincipal()))
+                .findFirst().orElse(lineas.get(0));
+        return elegida.getLineaInvestigacion() != null ? elegida.getLineaInvestigacion().getNombre() : null;
     }
 }

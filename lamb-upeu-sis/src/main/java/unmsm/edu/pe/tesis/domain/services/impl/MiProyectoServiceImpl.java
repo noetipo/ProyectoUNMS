@@ -42,6 +42,8 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Inject ProyectoRevisionRepository revisionRepository;
     @Inject ProyectoRevisionEventoRepository eventoRepository;
     @Inject ProyectoReferenciaRepository referenciaRepository;
+    @Inject ProyectoRevisorRepository revisorRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.InformeRevisorRepository informeRevisorRepository;
     @Inject DocumentoTesisRepository documentoTesisRepository;
     @Inject AlmacenamientoArchivos almacenamiento;
     @Inject ProyectoEditorAssembler assembler;
@@ -50,6 +52,7 @@ public class MiProyectoServiceImpl implements MiProyectoService {
 
     private static final String T_TURNITIN = "TURNITIN_INFORME";
     private static final String T_PROYECTO_FINAL = "PROYECTO_VERSION_FINAL";
+    private static final String T_INFORME_FINAL = "INFORME_FINAL_TESIS";
 
     @Override
     @Transactional
@@ -541,12 +544,41 @@ public class MiProyectoServiceImpl implements MiProyectoService {
 
     @Override
     @Transactional
+    public void subirInformeFinal(byte[] contenido, String nombreOriginal, String contentType) {
+        Estudiante est = estudianteActual();
+        Tesis tesis = tesisActiva(est);
+        ProyectoTesis p = proyectoDe(tesis);
+        if (!Boolean.TRUE.equals(p.getDefensaProgramada())) {
+            throw new BusinessException("El informe final se sube durante la ejecución (tras aprobar el proyecto)");
+        }
+        validarArchivo(contenido, contentType);
+
+        var existente = documentoTesisRepository.buscarPorTesisYTipo(tesis.getId(), T_INFORME_FINAL);
+        if (existente.isPresent() && existente.get().getStorageKey() != null) {
+            almacenamiento.eliminar(existente.get().getStorageKey());
+        }
+        String key = almacenamiento.guardar(contenido, nombreOriginal, contentType);
+        DocumentoTesis doc = existente.orElseGet(
+                () -> DocumentoTesis.builder().tesisId(tesis.getId()).tipo(T_INFORME_FINAL).build());
+        doc.setNombreOriginal(nombreOriginal);
+        doc.setStorageKey(key);
+        doc.setContentType(contentType);
+        doc.setTamanioBytes((long) contenido.length);
+        doc.setHashSha256(sha256(contenido));
+        doc.setFechaCarga(LocalDateTime.now());
+        doc.setSubidoPor(est.getPersonaId());
+        documentoTesisRepository.save(doc);
+    }
+
+    @Override
+    @Transactional
     public unmsm.edu.pe.tesis.application.dto.ArchivoDescargable descargarDocumento(String tipo) {
         Estudiante est = estudianteActual();
         Tesis tesis = tesisActiva(est);
         String t = switch (tipo != null ? tipo.trim().toLowerCase() : "") {
             case "turnitin" -> T_TURNITIN;
             case "proyecto-final", "proyecto_final", "final" -> T_PROYECTO_FINAL;
+            case "informe-final", "informe_final", "informe" -> T_INFORME_FINAL;
             default -> throw new ValidationException("Tipo de documento inválido: " + tipo);
         };
         DocumentoTesis doc = documentoTesisRepository.buscarPorTesisYTipo(tesis.getId(), t)
@@ -583,6 +615,66 @@ public class MiProyectoServiceImpl implements MiProyectoService {
         if ("resumen".equals(campo)) return tesis.getResumen();
         return campoRepository.buscarPorProyectoYClave(p.getId(), campo)
                 .map(ProyectoCampo::getValor).orElse(null);
+    }
+
+    @Override
+    @Transactional
+    public void responderRevisor(UUID revisorId, String respuesta) {
+        Estudiante est = estudianteActual();
+        ProyectoTesis p = proyectoDe(tesisActiva(est));
+        ProyectoRevisor rv = revisorRepository.buscarPorId(revisorId)
+                .orElseThrow(() -> new NotFoundException("Revisor no encontrado"));
+        if (!rv.getProyectoId().equals(p.getId())) {
+            throw new BusinessException("Ese revisor no pertenece a tu proyecto");
+        }
+        if (rv.getEstado() != unmsm.edu.pe.tesis.domain.enums.EstadoRevisor.OBSERVADO) {
+            throw new BusinessException("Solo puedes responder a un revisor que dejó observaciones");
+        }
+        if (respuesta == null || respuesta.isBlank()) {
+            throw new ValidationException("Escribe cómo levantaste las observaciones del revisor");
+        }
+        rv.setRespuestaEstudiante(respuesta.trim());
+        rv.setFechaRespuesta(LocalDate.now());
+        revisorRepository.save(rv);
+    }
+
+    @Override
+    @Transactional
+    public void solicitarJuradoInformante() {
+        Estudiante est = estudianteActual();
+        ProyectoTesis p = proyectoDe(tesisActiva(est));
+        if (Boolean.TRUE.equals(p.getJuradoInformanteSolicitado())) {
+            throw new BusinessException("Ya solicitaste el Jurado Informante");
+        }
+        if (!Boolean.TRUE.equals(p.getInformeFinalAprobado())) {
+            throw new BusinessException("Falta la carta del asesor aprobando el informe final");
+        }
+        if (!Boolean.TRUE.equals(p.getTurnitinSubido())) {
+            throw new BusinessException("Falta subir el informe de similitud de Turnitin");
+        }
+        p.setJuradoInformanteSolicitado(true);
+        p.setFechaJuradoInformante(LocalDate.now());
+        proyectoRepository.save(p);
+    }
+
+    @Override
+    @Transactional
+    public void responderJuradoInforme(UUID revisorId, String respuesta) {
+        Estudiante est = estudianteActual();
+        ProyectoTesis p = proyectoDe(tesisActiva(est));
+        var rv = informeRevisorRepository.buscarPorId(revisorId)
+                .orElseThrow(() -> new NotFoundException("Miembro del jurado no encontrado"));
+        if (!rv.getProyectoId().equals(p.getId())) {
+            throw new BusinessException("Ese jurado no pertenece a tu tesis");
+        }
+        if (rv.getEstado() != unmsm.edu.pe.tesis.domain.enums.EstadoRevisor.OBSERVADO) {
+            throw new BusinessException("Solo puedes responder a un jurado que dejó observaciones");
+        }
+        if (respuesta == null || respuesta.isBlank()) {
+            throw new ValidationException("Escribe cómo levantaste las observaciones del jurado");
+        }
+        rv.setRespuestaEstudiante(respuesta.trim());
+        informeRevisorRepository.save(rv);
     }
 
     @Override

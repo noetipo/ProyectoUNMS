@@ -48,6 +48,19 @@ export const END_POINTS = {
   },
   secretaria: {
     dictamenes: 'api/secretaria/dictamenes',
+    defensa: 'api/secretaria/defensa',   // Etapa 5 · recepción de expedientes
+  },
+  proyecto: {
+    miProyecto: 'api/mi-proyecto',        // Etapa 4 · editor del estudiante
+    asesorProyectos: 'api/asesor/proyectos', // Etapa 4 · revisión del asesor
+    tutorProyectos: 'api/tutor/proyectos',   // Etapa 4 · supervisión del tutor
+  },
+  expediente: {
+    mio: 'api/mi-expediente',             // expediente del estudiante autenticado
+    base: 'api/expedientes',              // + /{tesisId} (secretaría/admin/coordinador)
+  },
+  notificaciones: {
+    base: 'api/notificaciones',           // campanita (por rol)
   },
   tutorias: {
     base: 'api/tutorias',
@@ -66,6 +79,16 @@ export const END_POINTS = {
     estudiantesTema: 'api/coordinador/estudiantes-tema',
     tema: 'api/coordinador/estudiantes', // + /{estudianteId}/tema
     miTema: 'api/mi-perfil/tema',
+    proyectos: 'api/coordinador/proyectos', // Etapa 5 · designación de revisores
+  },
+  revisor: {
+    proyectos: 'api/revisor/proyectos', // Etapa 5 · evaluación con rúbrica
+  },
+  ejecucion: {
+    asesor: 'api/asesor/ejecucion', // Etapa 6 · ejecución de la tesis
+  },
+  juradoInforme: {
+    base: 'api/jurado-informe', // Etapa 7 · Jurado Informante del informe final
   },
   catalog: { base: 'api/catalog' },
   client: { base: 'api/client' },

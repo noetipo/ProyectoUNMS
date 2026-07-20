@@ -1,33 +1,43 @@
 import { CdkConnectedOverlay, CdkOverlayOrigin } from '@angular/cdk/overlay';
-import { Component, signal } from '@angular/core';
-import { MatButton, MatIconButton } from '@angular/material/button';
+import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { MatIconButton } from '@angular/material/button';
 import { MatDivider } from '@angular/material/divider';
 import { MatIcon } from '@angular/material/icon';
-import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
-import { formatDistance, sub } from 'date-fns';
+import { Router } from '@angular/router';
+import { environment } from '@/environments/environment';
+import { END_POINTS } from '@/app/providers/utils/end-points';
+
+interface Notif {
+  id: string;
+  title?: string | null;
+  description: string;
+  link?: string;
+  icon?: string;
+  fecha?: string | null;
+}
 
 @Component({
   selector: 'notifications',
-  imports: [
-    MatIconButton,
-    MatIcon,
-    CdkConnectedOverlay,
-    CdkOverlayOrigin,
-    MatButton,
-    MatDivider,
-    MatMenuTrigger,
-    MatMenu,
-    MatMenuItem,
-  ],
+  imports: [MatIconButton, MatIcon, CdkConnectedOverlay, CdkOverlayOrigin, MatDivider],
   template: `
-    <button
-      matIconButton
-      cdkOverlayOrigin
-      (click)="toggle()"
-      #trigger="cdkOverlayOrigin"
-    >
-      <mat-icon svgIcon="bell" />
-    </button>
+    <span class="relative inline-flex">
+      <button
+        matIconButton
+        cdkOverlayOrigin
+        (click)="toggle()"
+        #trigger="cdkOverlayOrigin"
+      >
+        <mat-icon svgIcon="bell" />
+      </button>
+      @if (notifications().length > 0) {
+        <span
+          class="pointer-events-none absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[9px] leading-none font-bold text-white ring-2 ring-white dark:ring-neutral-900"
+        >
+          {{ notifications().length }}
+        </span>
+      }
+    </span>
 
     <ng-template
       cdkConnectedOverlay
@@ -42,211 +52,82 @@ import { formatDistance, sub } from 'date-fns';
         class="z-10 flex max-h-120 w-full max-w-xs flex-col overflow-y-auto rounded-lg bg-white shadow-(--mat-sys-level2) dark:bg-neutral-800"
       >
         <!-- Header -->
-        <div class="flex flex-col bg-neutral-100 dark:bg-neutral-800">
-          <div class="flex items-center p-4 pb-0 pl-6">
-            <div class="flex items-center gap-x-3">
-              <mat-icon
-                class="size-4.5"
-                svgIcon="bell"
-              />
-              <div class="text-xl font-semibold tracking-tighter">
-                Notifications
-              </div>
-            </div>
-            <div class="flex-auto"></div>
-            <button
-              matIconButton
-              [matMenuTriggerFor]="notificationsMenu"
-            >
-              <mat-icon svgIcon="ellipsis-vertical" />
-            </button>
-            <mat-menu #notificationsMenu="matMenu">
-              <button mat-menu-item>
-                <mat-icon svgIcon="check-check" />
-                Mark all as read
-              </button>
-              <button mat-menu-item>
-                <mat-icon svgIcon="settings" />
-                Notification settings
-              </button>
-            </mat-menu>
-          </div>
-
-          <!-- Filters -->
-          <div class="flex items-center gap-x-2 px-6 pt-3 pb-4">
-            @for (filter of filters; track filter.value) {
-              <button
-                [matButton]="
-                  currentFilter().value === filter.value ? 'filled' : 'text'
-                "
-                class="small"
-                (click)="currentFilter.set(filter)"
-              >
-                {{ filter.label }}
-              </button>
-            }
-          </div>
-          <mat-divider />
+        <div class="flex items-center gap-x-3 bg-neutral-100 p-4 pl-6 dark:bg-neutral-800">
+          <mat-icon class="size-4.5" svgIcon="bell" />
+          <div class="text-xl font-semibold tracking-tighter">Notificaciones</div>
+          @if (notifications().length > 0) {
+            <span class="ml-auto rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
+              {{ notifications().length }}
+            </span>
+          }
         </div>
+        <mat-divider />
 
         <!-- List -->
         <div class="flex flex-col">
-          @for (
-            notification of notifications;
-            track notification.id;
-            let last = $last
-          ) {
-            <div class="flex gap-x-2 py-3 pr-4 pl-6">
+          @for (n of notifications(); track n.id; let last = $last) {
+            <button
+              type="button"
+              class="flex gap-x-3 py-3 pr-4 pl-6 text-left hover:bg-neutral-50 dark:hover:bg-neutral-700"
+              (click)="abrir(n)"
+            >
+              <mat-icon [svgIcon]="n.icon || 'bell'" class="mt-0.5 size-4.5 text-[#8C1D2E]" />
               <div class="flex-auto">
-                @if (notification.title) {
-                  <div class="font-semibold">{{ notification.title }}</div>
+                @if (n.title) {
+                  <div class="font-semibold">{{ n.title }}</div>
                 }
-                <div class="line-clamp-2">{{ notification.description }}</div>
-                <div class="mt-1 text-xs text-neutral-500">
-                  {{ timeAgo(notification.time) }}
-                </div>
+                <div class="line-clamp-2 text-sm">{{ n.description }}</div>
+                @if (n.fecha) {
+                  <div class="mt-1 text-xs text-neutral-500">{{ n.fecha }}</div>
+                }
               </div>
-              <button
-                matIconButton
-                [matMenuTriggerFor]="notificationActions"
-              >
-                <mat-icon svgIcon="ellipsis-vertical" />
-              </button>
-              <mat-menu #notificationActions="matMenu">
-                <button mat-menu-item>
-                  <mat-icon svgIcon="list-check" />
-                  Mark as read
-                </button>
-                <button mat-menu-item>
-                  <mat-icon svgIcon="trash" />
-                  Delete
-                </button>
-              </mat-menu>
-            </div>
-
+            </button>
             @if (!last) {
               <mat-divider
                 class="[--mat-divider-color:var(--color-neutral-200)] dark:[--mat-divider-color:var(--color-neutral-700)]"
               />
             }
           }
+          @if (!notifications().length) {
+            <div class="py-8 text-center text-sm text-neutral-400">
+              No tienes notificaciones pendientes.
+            </div>
+          }
         </div>
       </div>
     </ng-template>
   `,
 })
-export class Notifications {
-  // State
-  private now = new Date();
+export class Notifications implements OnInit {
+  private _http = inject(HttpClient);
+  private _router = inject(Router);
+
   protected open = signal(false);
-  protected filters = [
-    {
-      value: 'all',
-      label: 'All',
-    },
-    {
-      value: 'system',
-      label: 'System',
-    },
-    {
-      value: 'archive',
-      label: 'Archive',
-    },
-  ];
-  protected currentFilter = signal<{ value: string; label: string }>({
-    value: 'all',
-    label: 'All',
-  });
+  protected notifications = signal<Notif[]>([]);
 
-  // Data
-  protected notifications = [
-    {
-      id: '4q7Z8REBhn9kLBZMJE6p6',
-      title: 'Daily challenges',
-      description: 'Your submission has been accepted',
-      time: sub(this.now, { minutes: 25 }), // 25 minutes ago
-      read: false,
-      type: 'system',
-    },
-    {
-      id: 'eeeihQ6qGUtFFp7UkPqPJ',
-      title: null,
-      description:
-        'Leo Gill added you to "Top Secret Project" group and assigned you as a "Project Manager"',
-      time: sub(this.now, { minutes: 50 }), // 50 minutes ago
-      read: true,
-      type: 'archive',
-    },
-    {
-      id: 'X6f4gm4J7BfjwPTtttWze',
-      title: 'Mailbox',
-      description: 'You have 15 unread mails across 3 mailboxes',
-      time: sub(this.now, { hours: 3 }), // 3 hours ago
-      read: false,
-      type: 'system',
-    },
-    {
-      id: '99zrJ4pjchkmaB9V3npXZ',
-      title: 'Cron jobs',
-      description: 'Your Container is ready to publish',
-      time: sub(this.now, { hours: 5 }), // 5 hours ago
-      read: false,
-      type: 'system',
-    },
-    {
-      id: 'FjFRcXm9xtaVeqVtdV7MV',
-      title: null,
-      description: 'Roger Murray accepted your friend request',
-      time: sub(this.now, { hours: 7 }), // 7 hours ago
-      read: true,
-      type: 'archive',
-    },
-    {
-      id: 'PSSIjTGLtmHGRentSxFYj',
-      title: null,
-      description: 'Sophie Stone sent you a direct message',
-      time: sub(this.now, { hours: 9 }), // 9 hours ago
-      read: true,
-      type: 'system',
-    },
-    {
-      id: 'ltJWASIsKGO8cckmL4Pih',
-      title: 'Mailbox',
-      description: 'You have 3 new mails',
-      time: sub(this.now, { days: 1 }), // 1 day ago
-      read: true,
-      type: 'system',
-    },
-    {
-      id: 'vM0pgpCTOSDuLYzcGX1YW',
-      title: 'Daily challenges',
-      description:
-        'Your submission has been accepted and you are ready to sign-up for the final assigment which will be ready in 2 days',
-      time: sub(this.now, { days: 3 }), // 3 days ago
-      read: true,
-      type: 'system',
-    },
-    {
-      id: '3SCmoGzdD2jLaehkuSVf5',
-      title: 'Cron jobs',
-      description: 'Your Container is ready to download',
-      time: sub(this.now, { days: 4 }), // 4 days ago
-      read: true,
-      type: 'system',
-    },
-  ];
+  ngOnInit(): void {
+    this.cargar();
+  }
 
-  toggle(force: boolean | null = null) {
-    this.open.update((value) => {
-      if (force === null) {
-        return !value;
-      }
-
-      return force;
+  cargar(): void {
+    this._http.get<any>(environment.url + END_POINTS.notificaciones.base).subscribe({
+      next: (res) => this.notifications.set(res?.data ?? res ?? []),
+      error: () => this.notifications.set([]),
     });
   }
 
-  timeAgo(time: Date) {
-    return formatDistance(time, this.now, { addSuffix: true });
+  toggle(force: boolean | null = null) {
+    const next = force === null ? !this.open() : force;
+    this.open.set(next);
+    if (next) {
+      this.cargar(); // refresca al abrir
+    }
+  }
+
+  abrir(n: Notif) {
+    if (n.link) {
+      this._router.navigateByUrl(n.link);
+    }
+    this.toggle(false);
   }
 }

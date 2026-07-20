@@ -120,4 +120,50 @@ public class ProyectoTesis extends AuditableEntity {
 
     @Column(name = "fecha_recepcion")
     private LocalDate fechaRecepcion;
+
+    /** Ambos revisores dieron conformidad → proyecto listo para la defensa (Etapa 5, paso 4). */
+    @Column(name = "revisores_conformes")
+    private Boolean revisoresConformes;
+
+    @Column(name = "fecha_revisores_conformes")
+    private LocalDate fechaRevisoresConformes;
+
+    // ── Etapa 5 · paso 5: defensa oral programada ──
+    @Column(name = "defensa_programada")
+    private Boolean defensaProgramada;
+
+    @Column(name = "fecha_defensa")
+    private LocalDate fechaDefensa;
+
+    @Column(name = "hora_defensa", length = 10)
+    private String horaDefensa;
+
+    @Column(name = "lugar_defensa", length = 200)
+    private String lugarDefensa;
+
+    @Column(name = "dictamen_numero", length = 60)
+    private String dictamenNumero;
+
+    // ── Etapa 6 · ejecución de la tesis ──
+    /** El asesor aprobó el informe final (carta) con el plan 100% ejecutado. */
+    @Column(name = "informe_final_aprobado")
+    private Boolean informeFinalAprobado;
+
+    @Column(name = "fecha_informe_final")
+    private LocalDate fechaInformeFinal;
+
+    // ── Etapa 7 · Jurado Informante del informe final ──
+    /** El estudiante solicitó el Jurado Informante (expediente completo). */
+    @Column(name = "jurado_informante_solicitado")
+    private Boolean juradoInformanteSolicitado;
+
+    @Column(name = "fecha_jurado_informante")
+    private LocalDate fechaJuradoInformante;
+
+    /** Los 3 miembros del Jurado Informante aprobaron el informe final. */
+    @Column(name = "informe_final_revisado")
+    private Boolean informeFinalRevisado;
+
+    @Column(name = "fecha_informe_revisado")
+    private LocalDate fechaInformeRevisado;
 }

@@ -137,6 +137,45 @@ public class ProyectoTesisRepositoryImpl
         return ((Number) q.getSingleResult()).longValue();
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Object[]> bandejaDefensa(String buscar, int page, int size) {
+        Map<String, Object> params = new HashMap<>();
+        String sql = "SELECT pr.tesis_id, pr.id, p.apellido_paterno, p.apellido_materno, p.nombres, e.codigo_sistema, "
+                + "prog.nombre, te.titulo, pr.fecha_recepcion, "
+                + "(SELECT COUNT(*) FROM proyecto_revisores rv WHERE rv.proyecto_id = pr.id AND rv.active = true), "
+                + "COALESCE(pr.revisores_conformes, false), COALESCE(pr.defensa_programada, false), pr.fecha_defensa, "
+                + "COALESCE(pr.jurado_informante_solicitado, false), "
+                + "(SELECT COUNT(*) FROM proyecto_informe_revisores ir WHERE ir.proyecto_id = pr.id AND ir.active = true), "
+                + "COALESCE(pr.informe_final_revisado, false) "
+                + BANDEJA_EXP_FROM + whereDefensa(buscar, params)
+                + " ORDER BY pr.fecha_recepcion DESC NULLS LAST LIMIT :size OFFSET :offset";
+        Query q = getEntityManager().createNativeQuery(sql);
+        params.forEach(q::setParameter);
+        q.setParameter("size", size);
+        q.setParameter("offset", page * size);
+        return q.getResultList();
+    }
+
+    @Override
+    public long contarBandejaDefensa(String buscar) {
+        Map<String, Object> params = new HashMap<>();
+        String sql = "SELECT COUNT(*) " + BANDEJA_EXP_FROM + whereDefensa(buscar, params);
+        Query q = getEntityManager().createNativeQuery(sql);
+        params.forEach(q::setParameter);
+        return ((Number) q.getSingleResult()).longValue();
+    }
+
+    private String whereDefensa(String buscar, Map<String, Object> params) {
+        StringBuilder w = new StringBuilder(" WHERE pr.active = true AND COALESCE(pr.expediente_recibido, false) = true ");
+        if (buscar != null && !buscar.isBlank()) {
+            w.append(" AND (LOWER(p.nombres) LIKE :buscar OR LOWER(p.apellido_paterno) LIKE :buscar ")
+             .append(" OR LOWER(p.apellido_materno) LIKE :buscar OR LOWER(te.titulo) LIKE :buscar) ");
+            params.put("buscar", "%" + buscar.trim().toLowerCase() + "%");
+        }
+        return w.toString();
+    }
+
     private String whereExp(String buscar, Map<String, Object> params) {
         StringBuilder w = new StringBuilder(" WHERE pr.active = true AND pr.expediente_subido = true ");
         if (buscar != null && !buscar.isBlank()) {

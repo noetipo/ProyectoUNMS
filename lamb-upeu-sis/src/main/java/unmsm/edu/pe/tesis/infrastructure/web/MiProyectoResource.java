@@ -248,6 +248,30 @@ public class MiProyectoResource {
         return ok("Ítem marcado como corregido", null);
     }
 
+    @POST @Path("/revisores/{revisorId}/responder")
+    @Operation(summary = "El estudiante levanta las observaciones de un revisor")
+    public Response responderRevisor(@PathParam("revisorId") UUID revisorId, CorregirItemRequest req) {
+        guard();
+        service.responderRevisor(revisorId, req != null ? req.getRespuesta() : null);
+        return ok("Respuesta enviada al revisor", null);
+    }
+
+    @POST @Path("/jurado-informante/solicitar")
+    @Operation(summary = "El estudiante solicita el Jurado Informante del informe final (Etapa 7)")
+    public Response solicitarJuradoInformante() {
+        guard();
+        service.solicitarJuradoInformante();
+        return ok("Jurado Informante solicitado", null);
+    }
+
+    @POST @Path("/jurado-informante/{revisorId}/responder")
+    @Operation(summary = "El estudiante levanta las observaciones de un miembro del Jurado Informante")
+    public Response responderJuradoInforme(@PathParam("revisorId") UUID revisorId, CorregirItemRequest req) {
+        guard();
+        service.responderJuradoInforme(revisorId, req != null ? req.getRespuesta() : null);
+        return ok("Respuesta enviada al jurado", null);
+    }
+
     @POST @Path("/turnitin")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Operation(summary = "Subir el informe de similitud de Turnitin (PDF) + porcentaje")
@@ -293,6 +317,24 @@ public class MiProyectoResource {
             byte[] contenido = java.nio.file.Files.readAllBytes(archivo.uploadedFile());
             service.subirProyectoFinal(contenido, archivo.fileName(), archivo.contentType());
             return ok("Proyecto versión final subido", null);
+        } catch (java.io.IOException e) {
+            throw new BusinessException("No se pudo leer el archivo subido");
+        }
+    }
+
+    @POST @Path("/informe-final")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Operation(summary = "Subir el informe final de la tesis (Etapa 6)")
+    public Response informeFinal(@RestForm("archivo") FileUpload archivo) {
+        guard();
+        if (archivo == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(ApiResponse.error("Adjunta el informe final")).build();
+        }
+        try {
+            byte[] contenido = java.nio.file.Files.readAllBytes(archivo.uploadedFile());
+            service.subirInformeFinal(contenido, archivo.fileName(), archivo.contentType());
+            return ok("Informe final subido", null);
         } catch (java.io.IOException e) {
             throw new BusinessException("No se pudo leer el archivo subido");
         }

@@ -15,6 +15,32 @@ export type NavigationItem = {
 
 export const NAVIGATION: NavigationItem[] = [
   {
+    id: 'proceso-tesis',
+    label: 'Proceso de Tesis',
+    description: 'Elaboración del proyecto (Etapa 4)',
+    children: [
+      {
+        id: 'proceso-tesis/expediente',
+        label: 'Expediente de tesis',
+        icon: 'folder-open',
+        route: '/admin/expediente',
+      },
+      {
+        id: 'proceso-tesis/mi-proyecto',
+        label: '4 · Proyecto en línea (editor)',
+        icon: 'file-pen-line',
+        route: '/admin/mi-proyecto',
+      },
+      {
+        id: 'proceso-tesis/revision-proyecto',
+        label: 'Revisión de proyectos (asesor)',
+        icon: 'clipboard-check',
+        route: '/admin/revision-proyecto',
+        activeOptions: { exact: false },
+      },
+    ],
+  },
+  {
     id: 'dashboards',
     label: 'Dashboards',
     description: 'Overview of key metrics',

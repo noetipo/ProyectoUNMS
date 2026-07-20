@@ -137,6 +137,94 @@ const routes: Routes = [
       },
 
       // -----------------------------------------------------------------------
+      // Proceso de tesis · Etapa 4 · Elaboración del proyecto
+      // -----------------------------------------------------------------------
+      {
+        path: 'expediente',
+        canActivate: [roleGuard('ESTUDIANTE')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/expediente/components/expediente-tesis.component').then((m) => m.ExpedienteTesisComponent),
+      },
+      {
+        path: 'mi-proyecto',
+        canActivate: [roleGuard('ESTUDIANTE')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/mi-proyecto/components/mi-proyecto.component').then((m) => m.MiProyectoComponent),
+      },
+      {
+        path: 'revision-proyecto',
+        canActivate: [roleGuard('ASESOR')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/revision-proyecto/components/revision-bandeja.component').then((m) => m.RevisionBandejaComponent),
+      },
+      {
+        path: 'revision-proyecto/:tesisId',
+        canActivate: [roleGuard('ASESOR')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/revision-proyecto/components/revision-proyecto.component').then((m) => m.RevisionProyectoComponent),
+      },
+      {
+        path: 'supervision-proyecto',
+        canActivate: [roleGuard('PROF_TUTOR')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/supervision-proyecto/components/supervision-bandeja.component').then((m) => m.SupervisionBandejaComponent),
+      },
+      {
+        path: 'supervision-proyecto/:tesisId',
+        canActivate: [roleGuard('PROF_TUTOR')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/supervision-proyecto/components/supervision-proyecto.component').then((m) => m.SupervisionProyectoComponent),
+      },
+      {
+        path: 'secretaria-defensa',
+        canActivate: [roleGuard('SECRETARIA', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/secretaria-defensa/components/secretaria-defensa.component').then((m) => m.SecretariaDefensaComponent),
+      },
+      {
+        path: 'coordinador-proyecto',
+        canActivate: [roleGuard('COORDINADOR', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/coordinador-proyecto/components/coordinador-proyecto.component').then((m) => m.CoordinadorProyectoComponent),
+      },
+      {
+        path: 'revisor-proyecto',
+        canActivate: [roleGuard('DOCENTE', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/revisor-proyecto/components/revisor-bandeja.component').then((m) => m.RevisorBandejaComponent),
+      },
+      {
+        path: 'revisor-proyecto/:tesisId',
+        canActivate: [roleGuard('DOCENTE', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/revisor-proyecto/components/revisor-evaluar.component').then((m) => m.RevisorEvaluarComponent),
+      },
+      {
+        path: 'ejecucion-tesis',
+        canActivate: [roleGuard('ASESOR', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/ejecucion-tesis/components/ejecucion-bandeja.component').then((m) => m.EjecucionBandejaComponent),
+      },
+      {
+        path: 'ejecucion-tesis/:tesisId',
+        canActivate: [roleGuard('ASESOR', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/ejecucion-tesis/components/ejecucion-detalle.component').then((m) => m.EjecucionDetalleComponent),
+      },
+      {
+        path: 'jurado-informe',
+        canActivate: [roleGuard('DOCENTE', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/jurado-informe/components/jurado-informe-bandeja.component').then((m) => m.JuradoInformeBandejaComponent),
+      },
+      {
+        path: 'jurado-informe/:tesisId',
+        canActivate: [roleGuard('DOCENTE', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/jurado-informe/components/jurado-informe-evaluar.component').then((m) => m.JuradoInformeEvaluarComponent),
+      },
+
+      // -----------------------------------------------------------------------
       // Proceso de tesis · Bandeja del asesor (docente)
       // -----------------------------------------------------------------------
       {
