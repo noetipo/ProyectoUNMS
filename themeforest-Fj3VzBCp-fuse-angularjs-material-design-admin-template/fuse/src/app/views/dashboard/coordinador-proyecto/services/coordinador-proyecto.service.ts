@@ -15,8 +15,8 @@ export class CoordinadorProyectoService {
     return this._http.get<any>(this.base, { params });
   }
 
-  docentes$(): Observable<any> {
-    return this._http.get<any>(`${this.base}/docentes`);
+  docentes$(tesisId: string): Observable<any> {
+    return this._http.get<any>(`${this.base}/${tesisId}/docentes`);
   }
 
   revisores$(tesisId: string): Observable<any> {

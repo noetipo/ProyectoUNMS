@@ -652,7 +652,7 @@ export class PersonaFichaComponent implements OnInit {
           panelClass: ['dialog-anim'],
           autoFocus: false,
           maxWidth: '92vw',
-          data: { nombre, url, esPdf },
+          data: { nombre, url, esPdf, mime: tipo },
         }).afterClosed().subscribe(() => setTimeout(() => URL.revokeObjectURL(url), 1000));
       },
       error: () => this.perfilError.set('No se pudo previsualizar el documento'),

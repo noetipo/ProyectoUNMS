@@ -20,16 +20,11 @@ export const NAVIGATION: NavigationItem[] = [
     description: 'Elaboración del proyecto (Etapa 4)',
     children: [
       {
-        id: 'proceso-tesis/expediente',
-        label: 'Expediente de tesis',
-        icon: 'folder-open',
-        route: '/admin/expediente',
-      },
-      {
-        id: 'proceso-tesis/mi-proyecto',
-        label: '4 · Proyecto en línea (editor)',
-        icon: 'file-pen-line',
-        route: '/admin/mi-proyecto',
+        id: 'proceso-tesis/mi-tesis',
+        label: 'Mi tesis',
+        icon: 'route',
+        route: '/admin/mi-tesis',
+        activeOptions: { exact: false },
       },
       {
         id: 'proceso-tesis/revision-proyecto',

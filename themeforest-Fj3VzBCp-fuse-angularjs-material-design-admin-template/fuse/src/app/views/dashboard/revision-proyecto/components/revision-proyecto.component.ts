@@ -26,7 +26,7 @@ import { ActividadItem, FASE_LABEL, PROY_DEF, ProyectoEditor, RevisionItem, Secc
         </div>
         @if (p(); as e) {
           <button mat-flat-button color="primary" class="ml-auto !h-9 !text-sm"
-                  [disabled]="!e.todosConformes" (click)="emitirCarta()">
+                  [disabled]="!todosConformes()" (click)="emitirCarta()">
             <mat-icon svgIcon="badge-check" class="size-3.5 mr-1" /> {{ e.cartaAsesor ? '✓ Carta emitida' : 'Emitir carta de opinión favorable' }}
           </button>
         }
@@ -34,7 +34,7 @@ import { ActividadItem, FASE_LABEL, PROY_DEF, ProyectoEditor, RevisionItem, Secc
 
       <div class="page-content p-6">
         @if (p(); as e) {
-          <div class="mx-auto max-w-[1080px] space-y-4">
+          <div class="mx-auto max-w-[1440px] space-y-4">
             <!-- Cabecera -->
             <section class="form-card">
               <p class="text-[13px] font-semibold text-slate-800">{{ e.estudianteNombre }} <span class="text-slate-400 font-normal">· {{ e.codigoSistema }}</span></p>
@@ -51,13 +51,23 @@ import { ActividadItem, FASE_LABEL, PROY_DEF, ProyectoEditor, RevisionItem, Secc
                   <span class="text-sm font-extrabold" [ngClass]="e.avancePct >= 100 ? 'text-emerald-600' : 'text-[#8C1D2E]'">{{ e.avancePct }}%</span>
                 </div>
               </div>
-              @if (!e.cartaAsesor && !e.todosConformes) { <p class="text-[11px] text-amber-600 mt-1">Da conformidad a todos los ítems observados para poder emitir la carta.</p> }
+              @if (!e.cartaAsesor && !todosConformes()) { <p class="text-[11px] text-amber-600 mt-1">Da conformidad a todos los bloques del proyecto para poder emitir la carta.</p> }
             </section>
 
-            @if (cerrada()) {
+            @if (soloLectura()) {
+              <div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 flex items-center gap-2 text-[12.5px] text-sky-800">
+                <mat-icon svgIcon="eye" class="size-4 shrink-0" />
+                <span><b>Eres co-asesor de esta tesis.</b> Tu acceso es de consulta: puedes ver el
+                  proyecto y el historial de observaciones, pero la revisión la realiza el asesor.</span>
+              </div>
+            } @else if (cerrada()) {
               <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 flex items-center gap-2 text-[12.5px] text-emerald-700">
                 <mat-icon svgIcon="badge-check" class="size-4 shrink-0" />
-                <span><b>Carta de opinión favorable emitida.</b> La revisión quedó cerrada: ya no puedes observar ni dar conformidad a los ítems.</span>
+                @if (p()?.cartaAsesor) {
+                  <span><b>Carta de opinión favorable emitida.</b> La revisión quedó cerrada: ya no puedes observar ni dar conformidad a los ítems.</span>
+                } @else {
+                  <span><b>El proyecto ya avanzó de etapa.</b> La revisión del asesor quedó cerrada: ya no puedes observar ni dar conformidad.</span>
+                }
               </div>
             }
 
@@ -83,9 +93,9 @@ import { ActividadItem, FASE_LABEL, PROY_DEF, ProyectoEditor, RevisionItem, Secc
                       }
                       @if (!cerrada()) {
                         <div class="mt-2 flex gap-2">
-                          <button mat-button class="!h-7 !text-[11px] !text-[#8C1D2E]" (click)="irACampo(c.campo)"><mat-icon svgIcon="arrow-right" class="size-3.5 mr-1" /> Ver en su sección</button>
-                          <button mat-flat-button color="primary" class="!h-7 !text-[11px]" (click)="conforme(c.campo)"><mat-icon svgIcon="check" class="size-3.5 mr-1" /> Dar conformidad</button>
-                          <button mat-stroked-button class="!h-7 !text-[11px]" (click)="observar(c.campo, c.label)"><mat-icon svgIcon="flag" class="size-3.5 mr-1" /> Volver a observar</button>
+                          <button type="button" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-[#8C1D2E] bg-[#FDF6F7] border border-[#8C1D2E]/20 hover:bg-[#f7e9ec] transition" (click)="irACampo(c.campo)"><mat-icon svgIcon="arrow-right" class="size-3.5" /> Ver en su sección</button>
+                          <button type="button" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition" (click)="conforme(c.campo)"><mat-icon svgIcon="check" class="size-3.5" /> Dar conformidad</button>
+                          <button type="button" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition" (click)="observar(c.campo, c.label)"><mat-icon svgIcon="flag" class="size-3.5" /> Volver a observar</button>
                         </div>
                       }
                     </div>
@@ -122,7 +132,8 @@ import { ActividadItem, FASE_LABEL, PROY_DEF, ProyectoEditor, RevisionItem, Secc
                 <header class="form-card__head"><h2 class="form-card__title !text-[#8C1D2E]">{{ sec.titulo }}</h2></header>
                 <div class="space-y-4">
                   @for (c of sec.campos; track c.k) {
-                    <div>
+                    <!-- id + scroll-mt: "Ver en su sección" salta directo al ítem, no solo a la sección. -->
+                    <div [id]="'campo-' + c.k" class="scroll-mt-4 rounded-lg">
                       <div class="flex items-center gap-2 mb-1">
                         <label class="form-label !mb-0">{{ c.l }}</label>
                         <span class="ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold" [ngClass]="chip(c.k).cls">{{ chip(c.k).label }}</span>
@@ -153,14 +164,13 @@ import { ActividadItem, FASE_LABEL, PROY_DEF, ProyectoEditor, RevisionItem, Secc
                         </div>
                       }
                       @if (!cerrada()) {
-                        <div class="mt-1.5 flex gap-2">
-                          <button mat-stroked-button class="!h-7 !text-[11px] !text-[#8C1D2E] !border-[#8C1D2E]/40" (click)="observar(c.k, c.l)">
-                            <mat-icon svgIcon="flag" class="size-3.5 mr-1" /> {{ observado(c.k) ? 'Observar de nuevo' : 'Observar ítem' }}
+                        <div class="mt-1.5 flex gap-2 items-center">
+                          <button type="button" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition" (click)="observar(c.k, c.l)">
+                            <mat-icon svgIcon="flag" class="size-3.5" /> {{ observado(c.k) ? 'Observar de nuevo' : 'Observar ítem' }}
                           </button>
-                          <button mat-stroked-button class="!h-7 !text-[11px] !text-emerald-600"
-                                  [disabled]="rev(c.k)?.estado === 'CONFORME'" (click)="conforme(c.k)">
-                            <mat-icon svgIcon="check" class="size-3.5 mr-1" /> {{ rev(c.k)?.estado === 'CONFORME' ? 'Conforme ✓' : 'Dar conformidad' }}
-                          </button>
+                          @if (rev(c.k)?.estado === 'CONFORME') {
+                            <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600"><mat-icon svgIcon="check" class="size-3.5" /> Conforme</span>
+                          }
                         </div>
                       }
                     </div>
@@ -236,13 +246,13 @@ import { ActividadItem, FASE_LABEL, PROY_DEF, ProyectoEditor, RevisionItem, Secc
                       </div>
                     }
                     @if (!cerrada()) {
-                      <div class="mt-1.5 flex gap-2">
-                        <button mat-stroked-button class="!h-7 !text-[11px] !text-[#8C1D2E] !border-[#8C1D2E]/40" (click)="observar('plan', 'Plan de actividades')">
-                          <mat-icon svgIcon="flag" class="size-3.5 mr-1" /> {{ observado('plan') ? 'Observar de nuevo' : 'Observar ítem' }}
+                      <div class="mt-1.5 flex gap-2 items-center">
+                        <button type="button" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 transition" (click)="observar('plan', 'Plan de actividades')">
+                          <mat-icon svgIcon="flag" class="size-3.5" /> {{ observado('plan') ? 'Observar de nuevo' : 'Observar ítem' }}
                         </button>
-                        <button mat-stroked-button class="!h-7 !text-[11px] !text-emerald-600" [disabled]="rev('plan')?.estado === 'CONFORME'" (click)="conforme('plan')">
-                          <mat-icon svgIcon="check" class="size-3.5 mr-1" /> {{ rev('plan')?.estado === 'CONFORME' ? 'Conforme ✓' : 'Dar conformidad' }}
-                        </button>
+                        @if (rev('plan')?.estado === 'CONFORME') {
+                          <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600"><mat-icon svgIcon="check" class="size-3.5" /> Conforme</span>
+                        }
                       </div>
                     }
                   </div>
@@ -267,6 +277,30 @@ import { ActividadItem, FASE_LABEL, PROY_DEF, ProyectoEditor, RevisionItem, Secc
                         <div class="bg-white px-2.5 py-2 text-slate-600 leading-relaxed">{{ matriz().variables }}</div>
                       </div>
                     </div>
+                  </div>
+                }
+
+                <!-- Acción por bloque: un clic da conformidad a todo el bloque y salta al siguiente -->
+                @if (!cerrada()) {
+                  <div class="mt-5 pt-4 border-t border-dashed border-slate-200 flex flex-wrap items-center gap-3">
+                    @if (bloqueConforme(sec)) {
+                      <span class="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-emerald-600">
+                        <mat-icon svgIcon="badge-check" class="size-4" /> Bloque conforme
+                      </span>
+                      @if (paso() < totalPasos() - 1) {
+                        <button type="button" class="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-bold text-[#8C1D2E] bg-[#FDF6F7] border border-[#8C1D2E]/20 hover:bg-[#f7e9ec] transition" (click)="siguiente()">
+                          Siguiente bloque <mat-icon svgIcon="arrow-right" class="size-4" />
+                        </button>
+                      }
+                    } @else {
+                      <span class="text-[11px] text-slate-400 order-2 sm:order-1">Un clic: da conformidad a los ítems de este bloque y salta al siguiente.</span>
+                      <button type="button" [disabled]="guardandoBloque()"
+                              class="order-1 sm:order-2 ml-auto inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition disabled:opacity-50"
+                              (click)="conformeBloque()">
+                        <mat-icon svgIcon="check" class="size-4" /> Conforme y continuar
+                        <mat-icon svgIcon="arrow-right" class="size-4" />
+                      </button>
+                    }
                   </div>
                 }
               </section>
@@ -295,6 +329,16 @@ import { ActividadItem, FASE_LABEL, PROY_DEF, ProyectoEditor, RevisionItem, Secc
       </div>
     </div>
   `,
+  styles: [`
+    /* Destello al saltar a un ítem, para no perder de vista cuál era. */
+    .campo-destacado { animation: destello 2.2s ease-out; }
+    @keyframes destello {
+      0%   { box-shadow: 0 0 0 3px rgba(245, 158, 11, .55); background: rgba(254, 243, 199, .55); }
+      70%  { box-shadow: 0 0 0 3px rgba(245, 158, 11, .25); background: rgba(254, 243, 199, .25); }
+      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);     background: transparent; }
+    }
+    @media (prefers-reduced-motion: reduce) { .campo-destacado { animation: none; } }
+  `],
 })
 export class RevisionProyectoComponent implements OnInit {
   private _route = inject(ActivatedRoute);
@@ -389,14 +433,35 @@ export class RevisionProyectoComponent implements OnInit {
     return { label: campo, seccion: '' };
   }
 
-  /** Navega a la sección que contiene el campo (para verlo en contexto). */
+  /** Navega a la sección que contiene el campo y baja hasta él, destacándolo un momento. */
   irACampo(campo: string): void {
     const secs = this.secciones();
     const idx = secs.findIndex((s) => (campo === 'plan' ? !!s.wPlan : s.campos.some((c) => c.k === campo)));
     if (idx >= 0) this.irA(idx);
+    if (typeof window === 'undefined') return;
+    setTimeout(() => {
+      const el = document.getElementById('campo-' + campo);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('campo-destacado');
+      setTimeout(() => el.classList.remove('campo-destacado'), 2400);
+    }, 80);
   }
+  /** El co-asesor entra en modo consulta: ve todo, no actúa sobre nada. */
+  soloLectura(): boolean {
+    return !!this.p()?.soloLectura;
+  }
+
   /** Con la carta ya emitida, la revisión queda cerrada. */
-  cerrada(): boolean { return !!this.p()?.cartaAsesor; }
+  cerrada(): boolean {
+    const p = this.p();
+    // Sin permiso de escritura (co-asesor) se comporta igual que una revisión cerrada: se ocultan
+    // observar, dar conformidad y la carta, con su propio aviso arriba.
+    if (this.soloLectura()) return true;
+    // Cerrada tras emitir la carta, o si el proyecto ya avanzó de etapa (flujo hacia adelante, sin retroceder).
+    return !!p && (!!p.cartaAsesor || !!p.revisoresConformes || !!p.defensaProgramada
+      || !!p.informeFinalAprobado || !!p.informeFinalRevisado);
+  }
   /** ¿El ítem ya fue observado/revisado alguna vez? (para avisar que volver a observar es repetir). */
   observado(k: string): boolean {
     const e = this.rev(k)?.estado;
@@ -472,6 +537,84 @@ export class RevisionProyectoComponent implements OnInit {
       next: () => { this._toast.success('Ítem con conformidad'); this.cargar(); },
       error: (e) => this._toast.error(e?.error?.message ?? 'No se pudo dar conformidad'),
     });
+  }
+
+  // ── Conformidad por bloque (un clic + auto-avance) ──
+  protected guardandoBloque = signal(false);
+
+  /** Todas las claves revisables (con conformidad) de las secciones activas + el plan. */
+  private itemsRevisables(): string[] {
+    const keys: string[] = [];
+    for (const s of this.secciones()) {
+      keys.push(...s.campos.map((c) => c.k));
+      if (s.wPlan) keys.push('plan');
+    }
+    return keys;
+  }
+
+  /** Claves revisables de una sección concreta (sus campos + el plan si la sección lo incluye). */
+  private camposDeSeccion(sec: SeccionDef): string[] {
+    const keys = sec.campos.map((c) => c.k);
+    if (sec.wPlan) keys.push('plan');
+    return keys;
+  }
+
+  /** ¿Todos los ítems revisables de la sección están CONFORME? */
+  bloqueConforme(sec: SeccionDef): boolean {
+    const keys = this.camposDeSeccion(sec);
+    return keys.length > 0 && keys.every((k) => this.rev(k)?.estado === 'CONFORME');
+  }
+
+  /** La carta solo se habilita cuando TODO ítem revisable del proyecto está CONFORME. */
+  protected todosConformes = computed(() => {
+    const e = this.p();
+    if (!e || !e.listoRevision) return false;
+    return this.itemsRevisables().every((k) => this.rev(k)?.estado === 'CONFORME');
+  });
+
+  /** Da conformidad a todo el bloque actual (una sola petición) y salta al siguiente. */
+  conformeBloque(): void {
+    const sec = this.secActual();
+    if (!sec || this.guardandoBloque()) return;
+    // Solo los ítems confirmables: se omiten las observaciones vivas (quedan pendientes de corrección).
+    const aConfirmar = this.camposDeSeccion(sec).filter((k) => {
+      const s = this.rev(k)?.estado;
+      return s !== 'CONFORME' && s !== 'OBSERVADO' && s !== 'EN_CORRECCION';
+    });
+    if (!aConfirmar.length) {
+      this._toast.error('No hay ítems por confirmar en este bloque (los observados esperan corrección del estudiante).');
+      return;
+    }
+    const esUltimo = this.paso() >= this.totalPasos() - 1;
+    this.guardandoBloque.set(true);
+    // Actualización optimista: se refleja de inmediato y se avanza sin recargar todo el proyecto.
+    this.marcarConformeLocal(aConfirmar);
+    if (esUltimo) {
+      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      this.siguiente();
+    }
+    this._svc.conformeSeccion$(this.tesisId, aConfirmar).subscribe({
+      next: () => { this._toast.success('Bloque con conformidad'); this.guardandoBloque.set(false); },
+      error: (e) => {
+        this.guardandoBloque.set(false);
+        this._toast.error(e?.error?.message ?? 'No se pudo dar conformidad al bloque');
+        this.cargar(); // revierte el optimismo con el estado real del servidor
+      },
+    });
+  }
+
+  /** Marca localmente los campos como CONFORME (sin recargar), para respuesta instantánea. */
+  private marcarConformeLocal(campos: string[]): void {
+    const e = this.p();
+    if (!e) return;
+    const revs = [...(e.revisiones ?? [])];
+    for (const k of campos) {
+      const i = revs.findIndex((r) => r.campo === k);
+      if (i >= 0) revs[i] = { ...revs[i], estado: 'CONFORME' };
+      else revs.push({ campo: k, estado: 'CONFORME', eventos: [] });
+    }
+    this.p.set({ ...e, revisiones: revs });
   }
 
   emitirCarta(): void {

@@ -35,3 +35,12 @@
 /* Third Party                                                                */
 /* -------------------------------------------------------------------------- */
 @import './third-party/lucide-icons.css';
+
+/* -------------------------------------------------------------------------- */
+/* Base overrides                                                             */
+/* -------------------------------------------------------------------------- */
+/* Cursor de mano en cualquier botón habilitado (Tailwind v4 los deja en default). */
+button:not(:disabled),
+[role='button']:not(:disabled) {
+  cursor: pointer;
+}

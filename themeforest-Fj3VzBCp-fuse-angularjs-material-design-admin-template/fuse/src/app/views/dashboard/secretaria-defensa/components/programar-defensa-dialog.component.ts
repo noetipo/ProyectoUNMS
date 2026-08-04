@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { NotificationService } from '@/app/shared/notification/notification.service';
-import { CoordinadorProyectoService } from '../services/coordinador-proyecto.service';
+import { SecretariaDefensaService } from '../services/secretaria-defensa.service';
 
 export interface ProgramarDefensaData {
   tesisId: string;
@@ -13,7 +13,7 @@ export interface ProgramarDefensaData {
   titulo: string;
 }
 
-/** Modal del Coordinador para programar la defensa: Jurado Examinador + fecha/hora/lugar. */
+/** Modal de la Secretaría para programar la defensa: Jurado Examinador + fecha/hora/lugar. */
 @Component({
   selector: 'app-programar-defensa-dialog',
   standalone: true,
@@ -26,7 +26,7 @@ export interface ProgramarDefensaData {
       </div>
 
       <div class="px-4 flex-1 min-h-0 overflow-y-auto space-y-3">
-        <p class="text-[12px] text-slate-500">Designa el <b>Jurado Examinador</b> (Presidente + 2 miembros). La asesora se agrega automáticamente.</p>
+        <p class="text-[12px] text-slate-500">Designa el <b>Jurado Examinador</b> (Presidente + 2 miembros de la línea de investigación). La asesora se agrega automáticamente.</p>
 
         <div>
           <label class="lbl">Presidente del jurado</label>
@@ -52,6 +52,7 @@ export interface ProgramarDefensaData {
             </select>
           </div>
         </div>
+        @if (!docentes().length) { <p class="text-[11px] text-amber-600">No hay docentes de la línea de investigación de la tesis disponibles para el jurado.</p> }
         @if (repetidos()) { <p class="text-[11px] text-rose-500">El presidente y los 2 miembros deben ser docentes distintos.</p> }
 
         <div class="grid grid-cols-[1fr_120px] gap-3">
@@ -77,7 +78,7 @@ export interface ProgramarDefensaData {
   `],
 })
 export class ProgramarDefensaDialogComponent {
-  private _svc = inject(CoordinadorProyectoService);
+  private _svc = inject(SecretariaDefensaService);
   private _toast = inject(NotificationService);
 
   protected docentes = signal<any[]>([]);
@@ -100,7 +101,7 @@ export class ProgramarDefensaDialogComponent {
     public dialogRef: MatDialogRef<ProgramarDefensaDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: ProgramarDefensaData,
   ) {
-    this._svc.docentes$().subscribe({
+    this._svc.docentesDefensa$(this.data.tesisId).subscribe({
       next: (res) => this.docentes.set((res?.data ?? res) ?? []),
       error: () => this._toast.error('No se pudieron cargar los docentes'),
     });

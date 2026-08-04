@@ -362,7 +362,7 @@ export class PerfilCompletoFormComponent implements OnDestroy {
       panelClass: ['dialog-anim'],
       autoFocus: false,
       maxWidth: '92vw',
-      data: { nombre: file.name, url, esPdf: file.type === 'application/pdf' },
+      data: { nombre: file.name, url, esPdf: file.type === 'application/pdf', mime: file.type },
     });
   }
 

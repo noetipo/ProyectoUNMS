@@ -665,7 +665,7 @@ export class PersonaFormComponent implements OnInit {
         const url = URL.createObjectURL(new Blob([blob], { type: tipo || 'application/octet-stream' }));
         this._dialog.open(DocumentoPreviewDialogComponent, {
           panelClass: ['dialog-anim'], autoFocus: false, maxWidth: '92vw',
-          data: { nombre, url, esPdf },
+          data: { nombre, url, esPdf, mime: tipo },
         }).afterClosed().subscribe(() => setTimeout(() => URL.revokeObjectURL(url), 1000));
       },
       error: () => this.errorMsg.set('No se pudo previsualizar el documento.'),

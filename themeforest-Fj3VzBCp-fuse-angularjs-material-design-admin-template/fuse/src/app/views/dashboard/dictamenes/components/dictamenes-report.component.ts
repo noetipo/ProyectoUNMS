@@ -8,14 +8,23 @@ import { debounceTime } from 'rxjs';
 import { PaginationControlsComponent, PaginationEvent } from '@/app/shared/pagination-controls/pagination-controls.component';
 import { DictamenService } from '../services/dictamen.service';
 
+// Convención de color del sistema: granate = acción pendiente (te toca a ti) · ámbar = en curso,
+// esperando algo · esmeralda = resuelto · rosa = observado/rechazado.
 const BADGE: Record<string, string> = {
-  POR_ELABORAR: 'bg-amber-50 text-amber-700',
-  ELABORADO: 'bg-sky-50 text-sky-700',
+  POR_ELABORAR: 'bg-[#FDF6F7] text-[#8C1D2E]',
+  ELABORADO: 'bg-amber-50 text-amber-700',
   FIRMADO: 'bg-emerald-50 text-emerald-700',
   OBSERVADO: 'bg-rose-50 text-rose-600',
 };
+const PUNTO: Record<string, string> = {
+  POR_ELABORAR: 'bg-[#8C1D2E]',
+  ELABORADO: 'bg-amber-500',
+  FIRMADO: 'bg-emerald-500',
+  OBSERVADO: 'bg-rose-500',
+};
+// "Elaborado" se lee como terminado, y no lo está: falta subir el firmado del Director.
 const LABEL: Record<string, string> = {
-  POR_ELABORAR: 'Por elaborar', ELABORADO: 'Elaborado', FIRMADO: 'Firmado', OBSERVADO: 'Observado',
+  POR_ELABORAR: 'Sin redactar', ELABORADO: 'Falta la firma', FIRMADO: 'Firmado', OBSERVADO: 'Observado',
 };
 
 @Component({
@@ -35,12 +44,19 @@ const LABEL: Record<string, string> = {
         </div>
       </div>
 
+      <!-- Tarjetas-filtro: son la cola de trabajo, así que también sirven para filtrar.
+           "Pendientes" = por elaborar + elaborados sin firma (el trámite no termina al generar). -->
       <div class="px-6 pt-4">
         @if (resumen(); as r) {
           <div class="grid grid-cols-3 gap-3">
-            <div class="rounded-xl border border-slate-100 p-4"><p class="text-2xl font-bold text-amber-600">{{ r.porElaborar }}</p><p class="text-xs text-slate-400">Por elaborar</p></div>
-            <div class="rounded-xl border border-slate-100 p-4"><p class="text-2xl font-bold text-sky-600">{{ r.elaborados }}</p><p class="text-xs text-slate-400">Elaborados</p></div>
-            <div class="rounded-xl border border-slate-100 p-4"><p class="text-2xl font-bold text-emerald-600">{{ r.firmados }}</p><p class="text-xs text-slate-400">Firmados</p></div>
+            @for (c of tarjetas(r); track c.estado) {
+              <button type="button" (click)="filtrar(c.estado)"
+                      class="rounded-xl border p-4 text-left transition hover:border-slate-300"
+                      [ngClass]="estadoActual() === c.estado ? 'border-[#8C1D2E]/40 bg-[#FDF6F7]' : 'border-slate-100'">
+                <p class="text-2xl font-bold" [class]="c.color">{{ c.valor }}</p>
+                <p class="text-xs text-slate-400">{{ c.label }}</p>
+              </button>
+            }
           </div>
         }
       </div>
@@ -51,11 +67,12 @@ const LABEL: Record<string, string> = {
             <mat-icon svgIcon="search" class="toolbar-search__icon" />
             <input formControlName="buscar" placeholder="Buscar estudiante..." />
           </div>
+          <!-- "Por elaborar" agrupa todo lo que sigue en manos de la Secretaría (redactar o
+               subir la firma). El detalle de cada fila lo da su chip de estado. -->
           <select formControlName="estado" class="filter-select">
-            <option value="POR_ELABORAR">Por elaborar</option>
-            <option value="ELABORADO">Elaborados</option>
-            <option value="FIRMADO">Firmados</option>
+            <option value="PENDIENTES">Por elaborar</option>
             <option value="OBSERVADO">Observados</option>
+            <option value="FIRMADO">Firmados</option>
             <option value="">Todos</option>
           </select>
         </form>
@@ -69,7 +86,7 @@ const LABEL: Record<string, string> = {
           <div class="overflow-x-auto">
             <table class="data-table">
               <thead>
-                <tr><th class="w-8">#</th><th>Estudiante</th><th>Programa</th><th>Asesor / Co-asesor</th><th class="w-28">Estado</th><th class="w-40 text-right">Acción</th></tr>
+                <tr><th class="w-8">#</th><th>Estudiante</th><th>Programa</th><th>Asesor / Co-asesor</th><th class="w-36 whitespace-nowrap">Estado</th><th class="w-20 text-right">Acción</th></tr>
               </thead>
               <tbody>
                 @for (item of rows(); track item.tesisId; let i = $index) {
@@ -81,14 +98,35 @@ const LABEL: Record<string, string> = {
                     </td>
                     <td class="text-slate-500 text-sm">{{ item.programaNombre ?? '—' }}</td>
                     <td class="text-slate-500 text-xs">
-                      Asesor: {{ item.asesorNombre ?? '—' }}
-                      @if (item.coasesorNombre) { <br/>Co-asesor: {{ item.coasesorNombre }} }
+                      <p class="truncate max-w-[240px]">{{ item.asesorNombre ?? '—' }}</p>
+                      @if (item.coasesorNombre) {
+                        <p class="truncate max-w-[240px] text-[11px] text-slate-400">Co-asesor: {{ item.coasesorNombre }}</p>
+                      }
                     </td>
-                    <td><span class="text-[11px] font-medium px-2 py-0.5 rounded-full" [class]="badge(item.estadoDictamen)">{{ label(item.estadoDictamen) }}</span></td>
+                    <td class="whitespace-nowrap">
+                      <span [class]="chip(item.estadoDictamen)">
+                        <span [class]="'size-1.5 rounded-full shrink-0 ' + punto(item.estadoDictamen)"></span>
+                        {{ label(item.estadoDictamen) }}
+                      </span>
+                    </td>
                     <td class="text-right">
-                      <button class="btn-dark !h-7 !text-xs !px-3" (click)="abrir(item)">
-                        {{ item.estadoDictamen === 'FIRMADO' ? 'Ver' : (item.estadoDictamen === 'ELABORADO' ? 'Subir firmado' : 'Elaborar dictamen') }}
-                      </button>
+                      <!-- Convención de acciones de fila: iconos 7×7 con tooltip. El icono cambia
+                           según el estado; granate = queda algo por hacer, gris = solo consulta. -->
+                      <div class="row-actions">
+                        @if (item.estadoDictamen === 'FIRMADO') {
+                          <button mat-icon-button class="!w-7 !h-7" title="Revisar dictamen firmado" (click)="abrir(item)">
+                            <mat-icon svgIcon="file-search" class="text-slate-400 size-3.5" />
+                          </button>
+                        } @else if (item.estadoDictamen === 'ELABORADO') {
+                          <button mat-icon-button class="!w-7 !h-7" title="Subir dictamen firmado" (click)="abrir(item)">
+                            <mat-icon svgIcon="upload" class="text-[#8C1D2E] size-3.5" />
+                          </button>
+                        } @else {
+                          <button mat-icon-button class="!w-7 !h-7" title="Elaborar dictamen" (click)="abrir(item)">
+                            <mat-icon svgIcon="stamp" class="text-[#8C1D2E] size-3.5" />
+                          </button>
+                        }
+                      </div>
                     </td>
                   </tr>
                 }
@@ -128,11 +166,40 @@ export class DictamenesReportComponent implements OnInit {
   protected loading = signal(false);
   filterForm!: UntypedFormGroup;
 
-  protected badge = (e: string) => BADGE[e] ?? 'bg-slate-100 text-slate-500';
+  /**
+   * Clases completas del chip en UNA sola cadena: mezclar `class` estático con `[class]` deja el
+   * resultado a merced del orden de aplicación y el `whitespace-nowrap` se perdía → el estado
+   * "Falta la firma" partía en dos líneas y descuadraba la fila.
+   */
+  protected chip = (e: string) =>
+    'inline-flex items-center gap-1.5 whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium leading-5 '
+    + (BADGE[e] ?? 'bg-slate-100 text-slate-500');
+  protected punto = (e: string) => PUNTO[e] ?? 'bg-slate-300';
   protected label = (e: string) => LABEL[e] ?? e;
 
+  /** Estado filtrado ahora mismo (para resaltar la tarjeta correspondiente). */
+  protected estadoActual = signal('PENDIENTES');
+
+  /**
+   * Tres etapas EXCLUYENTES: cada dictamen se cuenta una sola vez y las cifras suman el total.
+   * (El desplegable sí agrupa las dos primeras bajo "Por elaborar", porque ahí lo que se elige
+   * es la cola de trabajo de la Secretaría, no la etapa.)
+   */
+  protected tarjetas(r: any) {
+    return [
+      { estado: 'POR_ELABORAR', label: 'Sin redactar', valor: r.porElaborar ?? 0, color: 'text-[#8C1D2E]' },
+      { estado: 'ELABORADO', label: 'Falta la firma', valor: r.elaborados ?? 0, color: 'text-amber-600' },
+      { estado: 'FIRMADO', label: 'Firmados', valor: r.firmados ?? 0, color: 'text-emerald-600' },
+    ];
+  }
+
+  protected filtrar(estado: string): void {
+    this.filterForm.patchValue({ estado });
+  }
+
   ngOnInit(): void {
-    this.filterForm = this._fb.group({ buscar: [''], estado: ['POR_ELABORAR'] });
+    this.filterForm = this._fb.group({ buscar: [''], estado: ['PENDIENTES'] });
+    this.filterForm.valueChanges.subscribe((v) => this.estadoActual.set(v.estado ?? ''));
     this.filterForm.valueChanges.pipe(debounceTime(300)).subscribe(() => { this.page.set(0); this.load(); });
     this.cargarResumen();
     this.load();

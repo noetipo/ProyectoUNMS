@@ -31,8 +31,9 @@ export class DictamenService {
     return this._http.get(`${this.base}/${tesisId}/documentos/${tipo}`, { responseType: 'blob' });
   }
 
-  elaborar$(tesisId: string, expediente: string, fechaSolicitud: string): Observable<any> {
-    return this._http.post<any>(`${this.base}/${tesisId}`, { expediente, fechaSolicitud });
+  /** El N° de dictamen y el de expediente los escribe la Secretaría (no son autogenerados). */
+  elaborar$(tesisId: string, fechaSolicitud: string, numero?: string, expediente?: string): Observable<any> {
+    return this._http.post<any>(`${this.base}/${tesisId}`, { fechaSolicitud, numero, expediente });
   }
 
   /** Descarga el dictamen elaborado (pdf | docx). */

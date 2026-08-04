@@ -145,11 +145,16 @@
 
   /* ── Row actions (visibles al hover) ─────────────────────────── */
 
+  /* Visibles en reposo (descubribilidad, sobre todo en touch) y al 100% al interactuar. */
   .row-actions {
-    @apply flex items-center justify-end gap-0.5 opacity-0 transition-opacity;
+    @apply flex items-center justify-end gap-0.5 transition-opacity;
+    opacity: 0.55;
   }
 
-  .data-table tbody tr:hover .row-actions {
+  .data-table tbody tr:hover .row-actions,
+  .data-table tbody tr:focus-within .row-actions,
+  .row-actions:hover,
+  .row-actions:focus-within {
     opacity: 1;
   }
 

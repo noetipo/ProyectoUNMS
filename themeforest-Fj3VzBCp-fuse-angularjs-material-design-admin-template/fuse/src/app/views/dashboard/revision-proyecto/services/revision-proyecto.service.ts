@@ -28,6 +28,11 @@ export class RevisionProyectoService {
     return this._http.post<any>(`${this.base}/${tesisId}/campos/${campo}/conforme`, {});
   }
 
+  /** Da conformidad a todos los ítems de una sección de una sola vez (flujo por bloque). */
+  conformeSeccion$(tesisId: string, campos: string[]): Observable<any> {
+    return this._http.post<any>(`${this.base}/${tesisId}/conformidad-seccion`, { campos });
+  }
+
   cartaOpinion$(tesisId: string): Observable<any> {
     return this._http.post<any>(`${this.base}/${tesisId}/carta-opinion`, {});
   }

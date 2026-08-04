@@ -140,7 +140,8 @@ export interface PartidaItem { id?: string; rubro?: string; descripcion?: string
 export interface RevisorEval {
   revisorId?: string; orden?: number; estado?: string;
   docenteNombre?: string; docenteCategoria?: string; docenteLinea?: string;
-  comentario?: string; respuesta?: string; puntajeTotal?: number;
+  comentario?: string; respuesta?: string;
+  puntajeTotal?: number; puntajeMaximo?: number; aprobado?: boolean;
 }
 
 export interface AvanceEval {
@@ -186,6 +187,8 @@ export interface ProyectoEditor {
   titulo?: string; resumen?: string;
   enfoque: string; enfoqueBloqueado: boolean; estado: string; financiamiento?: string;
   listoRevision: boolean; planPublicado: boolean; cartaAsesor: boolean;
+  /** true cuando quien consulta es el co-asesor: ve el proyecto pero no puede actuar. */
+  soloLectura?: boolean;
   turnitinSubido: boolean; proyectoFinalSubido: boolean; expedienteSubido: boolean; expedienteRecibido: boolean; porcentajeSimilitud?: number;
   avanceCompletados: number; avanceTotal: number; avancePct: number;
   campos: Record<string, string>;
@@ -230,6 +233,19 @@ export function tipoDot(tipo?: string): string {
     case 'CORRECCIÓN': return 'bg-sky-500';
     case 'CONFORMIDAD': return 'bg-emerald-500';
     default: return 'bg-slate-300';
+  }
+}
+
+/**
+ * Etiqueta y color del AUTOR de un evento, para que el estudiante distinga de un vistazo
+ * quién intervino: el asesor (lila) o un revisor (verde azulado). Sus propias correcciones en gris.
+ */
+export function rolBadge(rol?: string): { label: string; cls: string } | null {
+  switch (rol) {
+    case 'ASESOR': return { label: 'Asesor', cls: 'bg-violet-100 text-violet-700 ring-1 ring-violet-200' };
+    case 'REVISOR': return { label: 'Revisor', cls: 'bg-teal-100 text-teal-700 ring-1 ring-teal-200' };
+    case 'ESTUDIANTE': return { label: 'Tú', cls: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200' };
+    default: return null;
   }
 }
 

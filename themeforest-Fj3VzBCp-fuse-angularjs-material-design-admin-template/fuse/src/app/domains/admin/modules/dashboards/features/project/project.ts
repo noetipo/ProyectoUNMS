@@ -164,7 +164,7 @@ import { ProjectDashboardBudgetTable } from '@/app/domains/admin/modules/dashboa
 
       <!-- Summary Stats -->
       <div
-        class="grid gap-4 sm:gap-6 @max-md:grid-cols-1 @md:grid-cols-2 @4xl:grid-cols-4"
+        class="grid gap-4 sm:gap-6 @max-md:grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-4"
       >
         @for (item of data.summary; track item) {
           <mat-card appearance="filled">

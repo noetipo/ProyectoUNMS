@@ -29,6 +29,7 @@
     "apexcharts": "5.10.4",
     "chroma-js": "3.2.0",
     "date-fns": "4.1.0",
+    "docx-preview": "^0.4.0",
     "express": "5.2.1",
     "hsluv": "1.0.1",
     "ng-apexcharts": "2.3.0",

@@ -1,18 +1,28 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog } from '@angular/material/dialog';
 import { ConfirmDialogService } from '@/app/shared/confirm-dialog/confirm-dialog.service';
-import { abrirBlob } from '@/app/shared/perfil-completo/download.util';
-import { descargarBlob } from '@/app/views/dashboard/reportes/download.util';
+import { previsualizarBlob } from '@/app/shared/perfil-completo/preview.util';
 import { MiAsesoriaService } from '../services/mi-asesoria.service';
 import { AsesorSugerido, etiquetaEstadoDerivado, MiAsesoria } from '../models/mi-asesoria.model';
 
+/**
+ * "Mi asesoría" — trámite de designación del asesor visto por el doctorando.
+ *
+ * <p><b>Diseño B (elegido el 2026-08-03):</b> la pantalla venía "muy cargada" —párrafos de
+ * explicación, cada dato en su propia tarjeta y tres botones con texto por documento—. Ahora:
+ * una <i>franja de expediente</i> arriba (tema + tutor/asesor/co-asesor en horizontal) y debajo
+ * dos columnas: <i>qué pasa</i> (estado del trámite) y <i>qué hago</i> (documentos). Los iconos
+ * son los lucide de siempre y las acciones de cada documento van en <code>.row-actions</code>
+ * con botones de icono 7×7, igual que en las tablas del sistema — granate = acción pendiente,
+ * esmeralda = ya resuelto, slate = secundaria.</p>
+ */
 @Component({
   selector: 'app-mi-asesoria',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatExpansionModule],
+  imports: [CommonModule, MatButtonModule, MatIconModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -27,198 +37,178 @@ import { AsesorSugerido, etiquetaEstadoDerivado, MiAsesoria } from '../models/mi
       </div>
 
       <div class="page-content p-6">
-        <div class="max-w-3xl mx-auto space-y-5">
+        <div class="mx-auto max-w-[1440px] space-y-3">
 
           @if (loading()) {
             <p class="text-sm text-slate-400">Cargando…</p>
           } @else if (data(); as d) {
 
             @if (msg()) {
-              <div class="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-700">{{ msg() }}</div>
+              <div class="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-[12.5px] text-emerald-700">
+                <mat-icon svgIcon="circle-check" class="size-4 shrink-0" /> {{ msg() }}
+              </div>
             }
             @if (err()) {
-              <div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-700">{{ err() }}</div>
+              <div class="flex items-center gap-2 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[12.5px] text-rose-700">
+                <mat-icon svgIcon="circle-x" class="size-4 shrink-0" /> {{ err() }}
+              </div>
             }
 
-            <!-- Progreso -->
-            <div class="flex items-center gap-2 text-xs">
-              @for (s of pasos(); track s.label; let i = $index) {
-                <div class="flex items-center gap-2">
-                  <span class="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-                        [class]="s.estado === 'done' ? 'bg-emerald-50 text-emerald-700' : (s.estado === 'active' ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-400')">
-                    <span class="w-1.5 h-1.5 rounded-full"
-                          [class]="s.estado === 'done' ? 'bg-emerald-500' : (s.estado === 'active' ? 'bg-sky-500' : 'bg-slate-300')"></span>
-                    {{ s.label }}
-                  </span>
-                  @if (i < pasos().length - 1) { <mat-icon svgIcon="chevron-right" class="size-3 text-slate-300" /> }
+            <!-- ── Franja de expediente: tema + con quién lo haces ── -->
+            <section class="rounded-xl border border-slate-200 overflow-hidden">
+              <div class="flex items-start gap-2.5 px-3.5 py-3">
+                <mat-icon svgIcon="book-open" class="size-[18px] text-slate-400 shrink-0 mt-0.5" />
+                <div class="flex-1 min-w-0">
+                  @if (d.conTema) {
+                    <p class="text-[13px] font-semibold text-slate-800">{{ d.temaTitulo }}</p>
+                    <p class="text-[11px] text-slate-400 truncate">{{ d.lineaNombre ?? 'Sin línea' }} · {{ d.nivel ?? '—' }}</p>
+                  } @else {
+                    <p class="text-[13px] text-slate-400">El coordinador aún no registra tu tema de tesis.</p>
+                  }
                 </div>
-              }
-            </div>
-
-            <!-- Tema -->
-            <section class="rounded-xl border border-slate-100 p-4">
-              <div class="flex items-center justify-between mb-1">
-                <h2 class="text-sm font-semibold text-slate-800">Tema de investigación</h2>
-                <span class="text-[11px] font-medium px-2 py-0.5 rounded-full"
-                      [class]="d.estadoDerivado === 'SIN_TEMA' ? 'bg-rose-50 text-rose-600' : (d.estadoDerivado === 'SIN_ASESOR' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600')">
+                <span class="shrink-0 text-[10.5px] font-semibold px-2 py-0.5 rounded-full"
+                      [class]="d.estadoDerivado === 'SIN_TEMA' ? 'bg-rose-50 text-rose-600'
+                             : d.estadoDerivado === 'SIN_ASESOR' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'">
                   {{ estadoLabel(d.estadoDerivado) }}
                 </span>
               </div>
-              @if (d.conTema) {
-                <p class="text-sm font-medium text-slate-700">{{ d.temaTitulo }}</p>
-                <div class="grid grid-cols-2 gap-2 text-xs text-slate-500 mt-2">
-                  <div>Línea: {{ d.lineaNombre ?? '—' }}</div>
-                  <div>Nivel: {{ d.nivel ?? '—' }}</div>
-                </div>
-              } @else {
-                <p class="text-sm text-slate-400">Aún no tienes un tema registrado. El coordinador lo registrará por ti.</p>
-              }
+
+              <div class="grid sm:grid-cols-3 border-t border-slate-100 bg-slate-50/60
+                          divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+                @for (p of equipo(); track p.rol) {
+                  <div class="flex items-center gap-2 px-3.5 py-2.5 min-w-0">
+                    <mat-icon [svgIcon]="p.icon" class="size-4 shrink-0" [class]="p.nombre ? p.color : 'text-slate-300'" />
+                    <div class="min-w-0">
+                      <p class="text-[10px] uppercase tracking-wide text-slate-400">{{ p.rol }}</p>
+                      <p class="text-[12.5px] truncate" [class]="p.nombre ? 'font-semibold text-slate-700' : 'text-slate-400 italic'">
+                        {{ p.nombre ?? p.vacio }}
+                      </p>
+                    </div>
+                  </div>
+                }
+              </div>
             </section>
 
-            <!-- Asesores sugeridos -->
-            <section class="rounded-xl border border-slate-100 p-4">
-              <h2 class="text-sm font-semibold text-slate-800 mb-2">Asesores sugeridos por tu tutor</h2>
+            <!-- ── Dos columnas: qué pasa · qué hago ──
+                 Sin documentos todavía, "Estado del trámite" ocupa el ancho completo para que
+                 no quede medio lienzo en blanco. -->
+            <div class="grid gap-3 md:grid-cols-2 items-start">
 
-              @if (d.solicitudEstado === 'ACEPTADA') {
-                <div class="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5 text-sm text-emerald-700 mb-2">
-                  Asesoría aceptada por <b>{{ d.docenteSolicitadoNombre }}</b>. Descarga tus documentos en la sección <b>Documentos</b>, más abajo.
-                </div>
-              } @else if (d.solicitudEstado === 'PENDIENTE') {
-                <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-700 mb-2 flex items-center justify-between">
-                  <span>Solicitud <b>pendiente</b> enviada a {{ d.docenteSolicitadoNombre }}.</span>
-                  @if (d.solicitudId) {
-                    <button mat-stroked-button class="!h-7 !text-xs !min-w-0 !px-3" (click)="cancelar(d.solicitudId!)">Cancelar</button>
-                  }
-                </div>
-              } @else if (d.solicitudEstado === 'RECHAZADA') {
-                <div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-sm text-rose-700 mb-2">
-                  {{ d.docenteSolicitadoNombre }} rechazó la solicitud@if (d.motivoRespuesta) { : {{ d.motivoRespuesta }} }. Puedes solicitar a otro.
-                </div>
-              }
-
-              @if (d.sugeridos.length) {
-                <mat-accordion class="block space-y-2">
-                  @for (a of d.sugeridos; track a.sugerenciaId) {
-                    <mat-expansion-panel class="!shadow-none !border !border-slate-100 !rounded-lg">
-                      <mat-expansion-panel-header>
-                        <mat-panel-title>
-                          <span class="text-sm font-medium text-slate-700">{{ a.apellidos }}, {{ a.nombres }}</span>
-                        </mat-panel-title>
-                        <mat-panel-description>
-                          <span class="text-xs text-slate-400">{{ a.gradoAcademico ?? '' }} · {{ a.asesoriasActivas }} asesoría(s)</span>
-                        </mat-panel-description>
-                      </mat-expansion-panel-header>
-                      <div class="text-xs text-slate-500 space-y-1">
-                        <div>Email: {{ a.emailInstitucional ?? '—' }}</div>
-                        <div>Líneas: {{ (a.lineas?.length ? a.lineas!.join(', ') : '—') }}</div>
-                        <div>Carga actual: {{ a.asesoriasActivas }} asesoría(s) activa(s)</div>
-                        @if (a.nota) { <div class="italic">Nota del tutor: {{ a.nota }}</div> }
-                      </div>
-                      <div class="flex justify-end mt-3">
-                        <button class="btn-dark !h-7 !text-xs !px-3"
-                                [disabled]="!puedeSolicitar(a)"
-                                (click)="solicitar(a)">
-                          Solicitar asesoría
+              <!-- Estado del trámite (incluye a quién puedes solicitar: es parte del trámite,
+                   no una sección aparte que repita lo que ya dice la franja de arriba) -->
+              <section class="rounded-xl border border-slate-100 p-3.5"
+                       [ngClass]="hayDocumentos(d) ? '' : 'md:col-span-2'">
+                <h2 class="text-[12.5px] font-semibold text-slate-800 mb-2.5">Estado del trámite</h2>
+                <ul class="space-y-2">
+                  @for (e of tramite(); track e.texto) {
+                    <li class="flex items-start gap-2">
+                      <mat-icon [svgIcon]="e.icon" class="size-4 shrink-0 mt-px" [class]="e.color" />
+                      <span class="flex-1 text-[12px] text-slate-600 leading-snug">{{ e.texto }}</span>
+                      @if (e.cancelarId) {
+                        <button mat-stroked-button class="!h-6 !text-[11px] !min-w-0 !px-2.5 shrink-0" (click)="cancelar(e.cancelarId)">
+                          Cancelar
                         </button>
-                      </div>
-                      @if (!a.lineaIds?.length) {
-                        <p class="text-[11px] text-rose-400 text-right mt-1">Este asesor no tiene líneas registradas.</p>
                       }
-                    </mat-expansion-panel>
+                      @if (e.descargar) {
+                        <div class="row-actions shrink-0">
+                          <button mat-icon-button class="!w-7 !h-7" title="Descargar el dictamen firmado"
+                                  [disabled]="descargando()" (click)="verDictamen()">
+                            <mat-icon svgIcon="download" class="text-emerald-600 size-3.5" />
+                          </button>
+                        </div>
+                      }
+                    </li>
                   }
-                </mat-accordion>
-              } @else {
-                <p class="text-sm text-slate-400">Tu tutor aún no te ha sugerido asesores.</p>
-              }
-            </section>
+                </ul>
 
-            <!-- Documentos -->
-            <section class="rounded-xl border border-slate-100 p-4">
-              <h2 class="text-sm font-semibold text-slate-800 mb-2">Documentos</h2>
-              <div class="rounded-lg bg-sky-50 border border-sky-200 px-3 py-2 text-[12px] text-sky-700 mb-3">
-                Descarga cada documento, fírmalo físicamente y súbelo firmado. Con ambos, la secretaría elaborará tu dictamen.
-              </div>
-              <div class="space-y-3">
-                <!-- Solicitud -->
-                <div class="rounded-lg border border-slate-100 p-3">
-                  <div class="flex items-center justify-between gap-3">
-                    <div>
-                      <p class="text-sm text-slate-700 font-medium">Solicitud de asesoría</p>
-                      <p class="text-[11px]" [class.text-emerald-600]="d.solicitudFirmadaSubida" [class.text-amber-600]="!d.solicitudFirmadaSubida">
-                        {{ d.solicitudFirmadaSubida ? 'Firmado subido' : 'Pendiente de firma' }}
-                      </p>
-                    </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
-                      <button mat-stroked-button class="!h-8 !text-xs !min-w-0 !px-3" [disabled]="!d.solicitudPdfDisponible || descargando()" (click)="descargar('SOLICITUD_ASESORIA', 'pdf')">
-                        <mat-icon svgIcon="file-text" class="size-3.5 mr-1" /> PDF
-                      </button>
-                      <button mat-stroked-button class="!h-8 !text-xs !min-w-0 !px-3" [disabled]="!d.solicitudPdfDisponible || descargando()" (click)="descargar('SOLICITUD_ASESORIA', 'docx')">
-                        <mat-icon svgIcon="download" class="size-3.5 mr-1" /> Word
-                      </button>
-                      <button mat-flat-button color="primary" class="!h-8 !text-xs !min-w-0 !px-3" [disabled]="subiendo()" (click)="fileSol.click()">
-                        <mat-icon svgIcon="upload" class="size-3.5 mr-1" /> {{ d.solicitudFirmadaSubida ? 'Reemplazar' : 'Subir firmado' }}
-                      </button>
-                      <input #fileSol type="file" hidden accept=".pdf,.docx" (change)="onFile($event, 'solicitud')" />
-                    </div>
-                  </div>
-                </div>
-                <!-- Carta -->
-                <div class="rounded-lg border border-slate-100 p-3">
-                  <div class="flex items-center justify-between gap-3">
-                    <div>
-                      <p class="text-sm text-slate-700 font-medium">Carta de aceptación del asesor</p>
-                      <p class="text-[11px]" [class.text-emerald-600]="d.cartaFirmadaSubida" [class.text-amber-600]="!d.cartaFirmadaSubida">
-                        {{ d.cartaFirmadaSubida ? 'Firmado subido' : (d.cartaPdfDisponible ? 'Pendiente de firma' : 'Disponible cuando el asesor acepte') }}
-                      </p>
-                    </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
-                      <button mat-stroked-button class="!h-8 !text-xs !min-w-0 !px-3" [disabled]="!d.cartaPdfDisponible || descargando()" (click)="descargar('CARTA_ACEPTACION', 'pdf')">
-                        <mat-icon svgIcon="file-text" class="size-3.5 mr-1" /> PDF
-                      </button>
-                      <button mat-stroked-button class="!h-8 !text-xs !min-w-0 !px-3" [disabled]="!d.cartaPdfDisponible || descargando()" (click)="descargar('CARTA_ACEPTACION', 'docx')">
-                        <mat-icon svgIcon="download" class="size-3.5 mr-1" /> Word
-                      </button>
-                      <button mat-flat-button color="primary" class="!h-8 !text-xs !min-w-0 !px-3" [disabled]="subiendo() || !d.cartaPdfDisponible" (click)="fileCarta.click()">
-                        <mat-icon svgIcon="upload" class="size-3.5 mr-1" /> {{ d.cartaFirmadaSubida ? 'Reemplazar' : 'Subir firmado' }}
-                      </button>
-                      <input #fileCarta type="file" hidden accept=".pdf,.docx" (change)="onFile($event, 'carta')" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <!-- Dictamen -->
-            @if (d.dictamenEmitido) {
-              <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                <div class="flex items-start gap-3">
-                  <mat-icon svgIcon="badge-check" class="size-6 text-emerald-600 shrink-0" />
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-emerald-800">Dictamen de designación de asesor</p>
-                    @if (d.dictamenNumero) { <p class="text-xs text-emerald-700">N° {{ d.dictamenNumero }}</p> }
-                    <p class="text-[11px] text-emerald-600">Firmado por el Director de la Unidad de Posgrado@if (d.dictamenFechaEmision) { · {{ d.dictamenFechaEmision | date:'dd/MM/yyyy' }} }</p>
-                  </div>
-                  <button mat-flat-button color="primary" class="!h-8 !text-xs shrink-0" [disabled]="descargando()" (click)="verDictamen()">
-                    <mat-icon svgIcon="download" class="size-3.5 mr-1" /> Descargar
-                  </button>
-                </div>
-              </section>
-            } @else {
-              <section class="rounded-xl border border-slate-100 p-4">
-                <div class="flex items-center gap-3">
-                  <mat-icon svgIcon="clock" class="size-5 text-slate-300" />
-                  <div>
-                    <p class="text-sm font-medium text-slate-600">Dictamen de designación de asesor</p>
-                    <p class="text-[11px] text-slate-400">
-                      {{ (d.solicitudFirmadaSubida && d.cartaFirmadaSubida) ? 'La secretaría está elaborando tu dictamen.' : 'Sube los dos documentos firmados para que la secretaría elabore tu dictamen.' }}
+                <!-- Candidatos que aún puedes solicitar. Quien ya ocupa un puesto no aparece:
+                     su nombre ya está en la franja de arriba. -->
+                @if (sugeridosVisibles().length) {
+                  <div class="mt-3 pt-3 border-t border-slate-100">
+                    <p class="text-[11px] text-slate-400 mb-2">
+                      {{ d.asesorNombre ? 'Tu tutor también sugirió para co-asesoría' : 'Asesores sugeridos por tu tutor' }}
                     </p>
-                    @if (d.dictamenMotivoObservacion) {
-                      <p class="text-[11px] text-rose-500 mt-0.5">Observado: {{ d.dictamenMotivoObservacion }} — vuelve a subir los documentos.</p>
-                    }
+                    <div class="space-y-1.5">
+                      @for (a of sugeridosVisibles(); track a.sugerenciaId) {
+                        <div class="flex items-center gap-2">
+                          <mat-icon [svgIcon]="a.tipo === 'COASESOR' ? 'users-round' : 'handshake'"
+                                    class="size-4 shrink-0" [class]="a.tipo === 'COASESOR' ? 'text-sky-500' : 'text-[#8C1D2E]'" />
+                          <div class="min-w-0 flex-1" [title]="detalle(a)">
+                            <p class="text-[12px] font-medium text-slate-700 truncate">{{ a.apellidos }}, {{ a.nombres }}</p>
+                            <p class="text-[10.5px] text-slate-400 truncate">
+                              {{ a.gradoAcademico ?? 'Docente' }}@if (a.categoria) { · {{ a.categoria }} } · {{ a.asesoriasActivas }} asesoría(s)
+                            </p>
+                            <!-- Dónde trabaja y cuántos años lleva: pesa al elegir asesor. -->
+                            @if (a.centroLaboral || a.experienciaAnios) {
+                              <p class="text-[10.5px] text-slate-400 truncate flex items-center gap-1">
+                                @if (a.centroLaboral) {
+                                  <mat-icon svgIcon="building-2" class="size-3 text-slate-300 shrink-0" />{{ a.centroLaboral }}
+                                }
+                                @if (a.experienciaAnios) {
+                                  <span class="text-slate-300">·</span> {{ a.experienciaAnios }} años
+                                }
+                              </p>
+                            }
+                          </div>
+                          <div class="flex flex-col items-center shrink-0">
+                            <button class="btn-dark !h-6 !text-[11px] !px-2.5"
+                                    [disabled]="!puedeSolicitar(a)" [title]="motivoBloqueo(a) ?? etiquetaSolicitar(a)"
+                                    (click)="solicitar(a)">
+                              Solicitar
+                            </button>
+                            <!-- El co-asesor no es obligatorio: se avisa bajo el botón para que
+                                 nadie sienta que su trámite depende de pedirlo. -->
+                            @if (a.tipo === 'COASESOR') {
+                              <span class="text-[9.5px] text-slate-400 mt-1 leading-none"
+                                    title="El co-asesor es opcional: tu proceso avanza igual sin él.">opcional</span>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
                   </div>
-                </div>
+                }
               </section>
-            }
+
+              <!-- Documentos -->
+              @if (hayDocumentos(d)) {
+                <section class="rounded-xl border border-slate-100 p-3.5">
+                  <div class="flex items-baseline gap-1.5 mb-2.5">
+                    <h2 class="text-[12.5px] font-semibold text-slate-800">Documentos</h2>
+                    <span class="text-[11px] text-slate-400">· descarga, firma y sube</span>
+                  </div>
+                  <div class="space-y-1.5">
+                    @for (doc of documentos(); track doc.key) {
+                      <div class="flex items-center gap-2.5 rounded-lg border border-slate-100 px-2.5 py-2">
+                        <mat-icon [svgIcon]="doc.subida ? 'file-check' : 'file-text'" class="size-4 shrink-0"
+                                  [class]="doc.subida ? 'text-emerald-600' : doc.disponible ? 'text-amber-500' : 'text-slate-300'" />
+                        <div class="min-w-0 flex-1">
+                          <p class="text-[12px] font-medium text-slate-700 truncate">{{ doc.label }}</p>
+                          <p class="text-[10.5px]" [class]="doc.subida ? 'text-emerald-600' : doc.disponible ? 'text-amber-600' : 'text-slate-400'">
+                            {{ doc.subida ? 'Firmado subido' : doc.disponible ? 'Pendiente de firma' : 'Cuando tu asesor acepte' }}
+                          </p>
+                        </div>
+                        <div class="row-actions shrink-0">
+                          <button mat-icon-button class="!w-7 !h-7" title="Ver el documento en PDF"
+                                  [disabled]="!doc.disponible || descargando()" (click)="descargar(doc.tipo, 'pdf')">
+                            <mat-icon svgIcon="file-search" class="text-slate-400 size-3.5" />
+                          </button>
+                          <button mat-icon-button class="!w-7 !h-7" title="Descargar en Word"
+                                  [disabled]="!doc.disponible || descargando()" (click)="descargar(doc.tipo, 'docx')">
+                            <mat-icon svgIcon="download" class="text-slate-400 size-3.5" />
+                          </button>
+                          <button mat-icon-button class="!w-7 !h-7" [title]="doc.subida ? 'Reemplazar el firmado' : 'Subir el documento firmado'"
+                                  [disabled]="subiendo() || !doc.disponible" (click)="elegirArchivo(doc.key, file)">
+                            <mat-icon svgIcon="upload" class="size-3.5" [class]="doc.subida ? 'text-emerald-600' : 'text-[#8C1D2E]'" />
+                          </button>
+                        </div>
+                      </div>
+                    }
+                    <input #file type="file" hidden accept=".pdf,.docx" (change)="onFile($event)" />
+                  </div>
+                </section>
+              }
+            </div>
           }
         </div>
       </div>
@@ -228,6 +218,7 @@ import { AsesorSugerido, etiquetaEstadoDerivado, MiAsesoria } from '../models/mi
 export class MiAsesoriaComponent implements OnInit {
   private _svc = inject(MiAsesoriaService);
   private _confirm = inject(ConfirmDialogService);
+  private _dialog = inject(MatDialog);
 
   protected data = signal<MiAsesoria | null>(null);
   protected loading = signal(true);
@@ -236,16 +227,129 @@ export class MiAsesoriaComponent implements OnInit {
   protected msg = signal<string | null>(null);
   protected err = signal<string | null>(null);
 
-  protected pasos = computed(() => {
+  /** Qué documento se está subiendo (un solo <input file> para las dos filas). */
+  private subiendoTipo: 'solicitud' | 'carta' = 'solicitud';
+
+  /** Tutor · asesor · co-asesor, en horizontal. */
+  protected equipo = computed(() => {
     const d = this.data();
-    const conTema = !!d?.conTema;
-    const aceptada = d?.solicitudEstado === 'ACEPTADA';
     return [
-      { label: 'Tema registrado', estado: conTema ? 'done' : 'active' },
-      { label: 'Asesor aceptado', estado: aceptada ? 'done' : (conTema ? 'active' : 'idle') },
-      { label: 'Documentos', estado: aceptada ? 'active' : 'idle' },
+      { icon: 'graduation-cap', color: 'text-slate-400', rol: 'Tutor',
+        nombre: this.conGrado(d?.tutorGrado, d?.tutorNombre), vacio: 'sin asignar' },
+      { icon: 'handshake', color: 'text-[#8C1D2E]', rol: 'Asesor',
+        nombre: d?.asesorNombre ?? null, vacio: 'sin designar' },
+      { icon: 'users-round', color: 'text-sky-500', rol: 'Co-asesor',
+        nombre: d?.coasesorNombre ?? null, vacio: 'opcional' },
     ];
   });
+
+  /**
+   * "Qué pasa": el estado del trámite en líneas cortas — la solicitud del asesor, la de
+   * co-asesoría (opcional, nunca bloquea) y el dictamen.
+   */
+  protected tramite = computed(() => {
+    const d = this.data();
+    if (!d) return [];
+    const out: { icon: string; color: string; texto: string; cancelarId?: string; descargar?: boolean }[] = [];
+
+    // 0 · De dónde salen los asesores: el tutor. Solo mientras aún no tienes asesor.
+    if (!d.asesorNombre) {
+      if (!d.tutorNombre) {
+        out.push({ icon: 'graduation-cap', color: 'text-amber-500',
+                   texto: 'Aún no tienes tutor. El coordinador te asignará uno y él te sugerirá asesores.' });
+      } else if (!d.sugeridos.length) {
+        out.push({ icon: 'graduation-cap', color: 'text-slate-300',
+                   texto: `${d.tutorNombre} (tu tutor) aún no te ha sugerido asesores.` });
+      }
+    }
+
+    // 1 · Asesor
+    switch (d.solicitudEstado) {
+      case 'PENDIENTE':
+        out.push({ icon: 'clock', color: 'text-amber-500', cancelarId: d.solicitudId,
+                   texto: `Esperando la respuesta de ${d.docenteSolicitadoNombre}.` });
+        break;
+      case 'ACEPTADA':
+        out.push({ icon: 'circle-check', color: 'text-emerald-600',
+                   texto: `${d.docenteSolicitadoNombre} aceptó tu asesoría.` });
+        break;
+      case 'RECHAZADA':
+        out.push({ icon: 'circle-x', color: 'text-rose-500',
+                   texto: `${d.docenteSolicitadoNombre} rechazó la solicitud${d.motivoRespuesta ? ': ' + d.motivoRespuesta : ''}. Puedes solicitar a otro.` });
+        break;
+      default:
+        out.push({ icon: 'user-round-plus', color: 'text-slate-300',
+                   texto: 'Aún no has solicitado asesoría a ningún docente.' });
+    }
+
+    // 2 · Co-asesoría (solo si hay algo que contar)
+    if (d.coasesorSolicitudEstado === 'PENDIENTE') {
+      out.push({ icon: 'clock', color: 'text-amber-500', cancelarId: d.coasesorSolicitudId,
+                 texto: `Co-asesoría pendiente con ${d.coasesorSolicitadoNombre}; no detiene tu proceso.` });
+    } else if (d.coasesorSolicitudEstado === 'RECHAZADA' && !d.coasesorNombre) {
+      out.push({ icon: 'circle-x', color: 'text-rose-500',
+                 texto: `${d.coasesorSolicitadoNombre} rechazó la co-asesoría${d.coasesorMotivoRespuesta ? ': ' + d.coasesorMotivoRespuesta : ''}.` });
+    }
+
+    // 3 · Dictamen (solo tiene sentido con asesor designado)
+    if (d.asesorNombre || d.dictamenEmitido) {
+      if (d.dictamenEmitido) {
+        out.push({ icon: 'badge-check', color: 'text-emerald-600', descargar: true,
+                   texto: `Dictamen de designación emitido${d.dictamenNumero ? ' · N° ' + d.dictamenNumero : ''}.` });
+      } else if (d.dictamenMotivoObservacion) {
+        out.push({ icon: 'circle-x', color: 'text-rose-500',
+                   texto: `Dictamen observado: ${d.dictamenMotivoObservacion} — vuelve a subir los documentos.` });
+      } else {
+        out.push({ icon: 'stamp', color: 'text-slate-300',
+                   texto: (d.solicitudFirmadaSubida && d.cartaFirmadaSubida)
+                     ? 'Secretaría está elaborando tu dictamen de designación.'
+                     : 'Sube los dos firmados y Secretaría emitirá tu dictamen.' });
+      }
+    }
+    return out;
+  });
+
+  /** Los dos documentos del paquete (evita duplicar el bloque en la plantilla). */
+  protected documentos = computed(() => {
+    const d = this.data();
+    return [
+      { key: 'solicitud' as const, label: 'Solicitud de asesoría', tipo: 'SOLICITUD_ASESORIA' as const,
+        disponible: !!d?.solicitudPdfDisponible, subida: !!d?.solicitudFirmadaSubida },
+      { key: 'carta' as const, label: 'Carta de aceptación', tipo: 'CARTA_ACEPTACION' as const,
+        disponible: !!d?.cartaPdfDisponible, subida: !!d?.cartaFirmadaSubida },
+    ];
+  });
+
+  /**
+   * Sugeridos que aún se pueden solicitar. Se descarta a quien ya ocupa un puesto (aparecía
+   * repetido: en la franja como asesor designado y otra vez aquí con el botón bloqueado) y a
+   * toda sugerencia cuyo puesto ya está cubierto. Lo que no es accionable no va en la lista:
+   * su información ya está en la franja y en "Estado del trámite".
+   */
+  protected sugeridosVisibles = computed(() => {
+    const d = this.data();
+    if (!d) return [];
+    return d.sugeridos.filter((a) => {
+      if (a.asesorDocenteId === d.asesorDocenteId || a.asesorDocenteId === d.coasesorDocenteId) return false;
+      return this.tipoSolicitud(a) === 'COASESOR' ? !d.coasesorNombre : !d.asesorNombre;
+    });
+  });
+
+  /** Detalle del docente en el tooltip: no necesita ocupar sitio en pantalla. */
+  protected detalle(a: AsesorSugerido): string {
+    const partes = [
+      [a.categoria, a.condicion].filter(Boolean).join(' · ') || null,
+      a.cargoActual,
+      a.centroLaboral ? `${a.centroLaboral}${a.centroLaboralDetalle ? ' — ' + a.centroLaboralDetalle : ''}` : null,
+      a.experienciaAnios ? `${a.experienciaAnios} años de experiencia` : null,
+      a.estudios?.length ? a.estudios.join(' · ') : null,
+      a.emailInstitucional,
+      a.orcid ? `ORCID ${a.orcid}` : null,
+      a.lineas?.length ? a.lineas.join(' · ') : null,
+      a.nota ? `Nota del tutor: ${a.nota}` : null,
+    ].filter(Boolean);
+    return partes.join('\n');
+  }
 
   ngOnInit(): void {
     this.cargar();
@@ -261,17 +365,80 @@ export class MiAsesoriaComponent implements OnInit {
 
   estadoLabel = etiquetaEstadoDerivado;
 
-  puedeSolicitar(a: AsesorSugerido): boolean {
+  private conGrado(grado?: string, nombre?: string): string | null {
+    if (!nombre) return null;
+    return grado ? `${grado} ${nombre}` : nombre;
+  }
+
+  /**
+   * La sección se muestra SOLO cuando el alumno ya tiene asesor designado. Se mira la
+   * designación (`asesorNombre`) y no el estado de la solicitud, por dos motivos: una solicitud
+   * aceptada sin tema registrado no llega a materializar la asesoría, y una solicitud posterior
+   * rechazada (p. ej. de co-asesoría) no debe esconder los documentos del asesor que ya tiene.
+   */
+  hayDocumentos(d: MiAsesoria): boolean {
+    return !!d.asesorNombre;
+  }
+
+  /**
+   * Puesto de la solicitud: manda lo que indicó el tutor al sugerirlo; si la sugerencia es
+   * antigua y no trae tipo, se deduce del estado (con asesor ya designado solo queda co-asesor).
+   */
+  tipoSolicitud(a?: AsesorSugerido): 'ASESOR' | 'COASESOR' {
+    if (a?.tipo) return a.tipo;
+    return this.data()?.asesorNombre ? 'COASESOR' : 'ASESOR';
+  }
+
+  etiquetaSolicitar(a?: AsesorSugerido): string {
+    return this.tipoSolicitud(a) === 'COASESOR' ? 'Solicitar co-asesoría' : 'Solicitar asesoría';
+  }
+
+  /**
+   * Por qué no se puede solicitar a este docente, o null si sí se puede. Se muestra junto al
+   * botón: un botón deshabilitado sin explicación se lee como "no funciona".
+   */
+  motivoBloqueo(a: AsesorSugerido): string | null {
     const d = this.data();
-    return !!d && d.solicitudEstado !== 'PENDIENTE' && d.solicitudEstado !== 'ACEPTADA' && !!a.lineaIds?.length;
+    if (!d) return 'Cargando…';
+    if (!a.lineaIds?.length) return 'Este docente no tiene líneas de investigación registradas';
+    const pendiente = d.solicitudEstado === 'PENDIENTE';           // la del asesor principal
+    const coPendiente = d.coasesorSolicitudEstado === 'PENDIENTE'; // la de co-asesoría
+
+    // Co-asesor: el mensaje habla de SU puesto, no de la solicitud del asesor. Que haya una
+    // solicitud en curso solo importa aquí porque el asesor principal aún no está confirmado.
+    if (this.tipoSolicitud(a) === 'COASESOR') {
+      if (!d.asesorNombre) {
+        return pendiente
+          ? 'Esperando la confirmación de tu asesor principal'
+          : 'Disponible cuando tengas asesor principal';
+      }
+      if (d.coasesorNombre) return `Ya tienes co-asesor: ${d.coasesorNombre}`;
+      return coPendiente ? 'Tienes una solicitud de co-asesoría pendiente' : null;
+    }
+
+    // Asesor principal: uno solo.
+    if (d.asesorNombre) return `Ya tienes asesor designado: ${d.asesorNombre}`;
+    if (pendiente) return `Solicitud enviada a ${d.docenteSolicitadoNombre ?? 'un docente'}: esperando respuesta`;
+    if (d.solicitudEstado === 'ACEPTADA') return 'Tu asesoría ya fue aceptada';
+    return null;
+  }
+
+  puedeSolicitar(a: AsesorSugerido): boolean {
+    return this.motivoBloqueo(a) === null;
   }
 
   solicitar(a: AsesorSugerido): void {
     const linea = a.lineaIds?.[0];
     if (!linea) return;
     this.msg.set(null); this.err.set(null);
-    this._svc.solicitar$(a.asesorDocenteId, linea, this.data()?.temaTitulo).subscribe({
-      next: () => { this.msg.set('Solicitud enviada. Ya puedes descargar la Solicitud en PDF.'); this.cargar(); },
+    const tipo = this.tipoSolicitud(a);
+    this._svc.solicitar$(a.asesorDocenteId, linea, this.data()?.temaTitulo, tipo).subscribe({
+      next: () => {
+        this.msg.set(tipo === 'COASESOR'
+          ? 'Solicitud de co-asesoría enviada.'
+          : 'Solicitud enviada. Ya puedes descargar la Solicitud en PDF.');
+        this.cargar();
+      },
       error: (e) => this.err.set(e?.error?.message ?? e?.error?.error ?? 'No se pudo enviar la solicitud'),
     });
   }
@@ -287,27 +454,31 @@ export class MiAsesoriaComponent implements OnInit {
     this.err.set(null);
     this._svc.descargar$(tipo, formato).subscribe({
       next: (blob) => {
-        const nombre = `${tipo.toLowerCase()}.${formato}`;
-        // El PDF se previsualiza en pestaña; el Word (.docx) se descarga (el navegador no lo renderiza).
-        if (formato === 'docx') {
-          descargarBlob(blob, nombre);
-        } else {
-          abrirBlob(blob, nombre);
-        }
+        // Ambos formatos se ven en el visor (el Word se renderiza con docx-preview); desde ahí
+        // se descarga una copia si el alumno la necesita para imprimirla y firmarla.
+        const titulo = (tipo === 'SOLICITUD_ASESORIA' ? 'Solicitud de asesoría' : 'Carta de aceptación')
+          + (formato === 'docx' ? ' (Word)' : '');
+        previsualizarBlob(this._dialog, blob, titulo);
         this.descargando.set(false);
       },
       error: () => { this.err.set('No se pudo descargar el documento'); this.descargando.set(false); },
     });
   }
 
-  onFile(event: Event, tipo: 'solicitud' | 'carta'): void {
+  /** Recuerda qué fila pidió el archivo y abre el selector (input compartido). */
+  elegirArchivo(tipo: 'solicitud' | 'carta', input: HTMLInputElement): void {
+    this.subiendoTipo = tipo;
+    input.click();
+  }
+
+  onFile(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
     this.subiendo.set(true);
     this.err.set(null);
-    this._svc.subirFirmado$(tipo, file).subscribe({
+    this._svc.subirFirmado$(this.subiendoTipo, file).subscribe({
       next: () => { this.subiendo.set(false); this.msg.set('Documento firmado subido correctamente.'); this.cargar(); },
       error: (e) => { this.subiendo.set(false); this.err.set(e?.error?.message ?? 'No se pudo subir el archivo (usa PDF o Word).'); },
     });
@@ -317,7 +488,7 @@ export class MiAsesoriaComponent implements OnInit {
     this.descargando.set(true);
     this.err.set(null);
     this._svc.descargarDictamen$().subscribe({
-      next: (blob) => { abrirBlob(blob, 'dictamen.pdf'); this.descargando.set(false); },
+      next: (blob) => { previsualizarBlob(this._dialog, blob, 'Dictamen de designación de asesor'); this.descargando.set(false); },
       error: () => { this.err.set('No se pudo descargar el dictamen'); this.descargando.set(false); },
     });
   }

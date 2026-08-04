@@ -17,4 +17,9 @@ export interface SolicitudBandeja {
   fechaSolicitud?: string;
   fechaRespuesta?: string;
   motivoRespuesta?: string;
+  /** Contexto del tema, para decidir la solicitud con información. */
+  nivel?: string;
+  temaTitulo?: string;
+  temaResumen?: string;
+  tutorNombre?: string;
 }

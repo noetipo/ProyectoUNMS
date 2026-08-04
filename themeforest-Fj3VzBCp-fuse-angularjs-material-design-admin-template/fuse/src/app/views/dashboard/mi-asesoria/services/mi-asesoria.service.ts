@@ -20,12 +20,14 @@ export class MiAsesoriaService {
   }
 
   /** Reutiliza el POST de solicitudes: el estudiante solicita a un asesor sugerido. */
-  solicitar$(docenteId: string, lineaInvestigacionId: string, tituloTentativo?: string): Observable<any> {
+  /** @param tipo ASESOR (el principal, uno solo) o COASESOR (opcional, uno solo) */
+  solicitar$(docenteId: string, lineaInvestigacionId: string, tituloTentativo?: string,
+             tipo: 'ASESOR' | 'COASESOR' = 'ASESOR'): Observable<any> {
     return this._http.post<any>(this.solicitudesUrl, {
       docenteId,
       lineaInvestigacionId,
       tituloTentativo,
-      tipo: 'ASESOR',
+      tipo,
     });
   }
 

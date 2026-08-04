@@ -26,7 +26,7 @@ import { JuradoInformeService } from '../services/jurado-informe.service';
 
       <div class="page-content p-6">
         @if (d(); as data) {
-          <div class="mx-auto max-w-[720px] space-y-4">
+          <div class="mx-auto max-w-[1100px] space-y-4">
             <section class="form-card">
               <p class="text-[13px] font-semibold text-slate-800">{{ data.estudianteNombre }} <span class="text-slate-400 font-normal">· {{ data.codigoSistema }}</span></p>
               <p class="text-[12.5px] text-slate-500">{{ data.programaNombre }}</p>

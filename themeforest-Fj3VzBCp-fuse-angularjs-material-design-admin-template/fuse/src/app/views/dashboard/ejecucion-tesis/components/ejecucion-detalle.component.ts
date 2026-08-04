@@ -33,7 +33,7 @@ const CRITERIOS = [
 
       <div class="page-content p-6">
         @if (d(); as data) {
-          <div class="mx-auto max-w-[1080px]">
+          <div class="mx-auto max-w-[1440px]">
             <!-- Cabecera + avance del plan -->
             <section class="form-card mb-4">
               <p class="text-[13px] font-semibold text-slate-800">{{ data.proyecto.estudianteNombre }} <span class="text-slate-400 font-normal">· {{ data.proyecto.codigoSistema }}</span></p>

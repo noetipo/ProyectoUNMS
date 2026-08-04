@@ -82,7 +82,7 @@ export class DesignarJuradoInformeDialogComponent {
     public dialogRef: MatDialogRef<DesignarJuradoInformeDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: DesignarJuradoInformeData,
   ) {
-    this._svc.docentes$().subscribe({
+    this._svc.docentes$(this.data.tesisId).subscribe({
       next: (res) => this.docentes.set((res?.data ?? res) ?? []),
       error: () => this._toast.error('No se pudieron cargar los docentes'),
     });

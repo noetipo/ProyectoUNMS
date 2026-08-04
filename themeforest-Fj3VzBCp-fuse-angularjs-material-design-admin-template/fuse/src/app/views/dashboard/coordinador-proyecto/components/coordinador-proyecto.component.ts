@@ -3,10 +3,10 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
+import { ActivatedRoute } from '@angular/router';
 import { NotificationService } from '@/app/shared/notification/notification.service';
 import { CoordinadorProyectoService } from '../services/coordinador-proyecto.service';
 import { DesignarRevisoresDialogComponent } from './designar-revisores-dialog.component';
-import { ProgramarDefensaDialogComponent } from './programar-defensa-dialog.component';
 import { DesignarJuradoInformeDialogComponent } from './designar-jurado-informe-dialog.component';
 import { DetalleDesignacionDialogComponent } from './detalle-designacion-dialog.component';
 
@@ -45,7 +45,8 @@ import { DetalleDesignacionDialogComponent } from './detalle-designacion-dialog.
             </tr></thead>
             <tbody>
               @for (r of rows(); track r.tesisId) {
-                <tr class="border-t border-slate-100">
+                <tr class="border-t border-slate-100"
+                    [ngClass]="r.tesisId === resaltado() ? 'bg-amber-50 ring-1 ring-inset ring-amber-300' : ''">
                   <td class="py-2 px-3 text-slate-700">{{ r.estudianteApellidos }}, {{ r.estudianteNombres }}<br><span class="text-[11px] text-slate-400">{{ r.codigoSistema }}</span></td>
                   <td class="py-2 px-3 text-slate-500">{{ r.programaNombre }}</td>
                   <td class="py-2 px-3 text-slate-600 max-w-[280px] truncate">{{ r.tituloTesis }}</td>
@@ -77,9 +78,7 @@ import { DetalleDesignacionDialogComponent } from './detalle-designacion-dialog.
                         <mat-icon svgIcon="user-plus" class="size-3.5 mr-1" /> Designar revisores
                       </button>
                     } @else if (r.revisoresConformes && !r.defensaProgramada) {
-                      <button mat-flat-button color="primary" class="!h-8 !text-xs" (click)="programar(r)">
-                        <mat-icon svgIcon="calendar-check" class="size-3.5 mr-1" /> Programar defensa
-                      </button>
+                      <span class="text-[11px] text-slate-400">Lista para defensa · la programa Secretaría</span>
                     } @else if (r.juradoInformanteSolicitado && !r.juradoInformeDesignado) {
                       <button mat-flat-button color="primary" class="!h-8 !text-xs" (click)="designarJuradoInforme(r)">
                         <mat-icon svgIcon="user-plus" class="size-3.5 mr-1" /> Jurado Informante
@@ -111,10 +110,17 @@ export class CoordinadorProyectoComponent implements OnInit {
   private _toast = inject(NotificationService);
   private _dialog = inject(MatDialog);
 
+  private _route = inject(ActivatedRoute);
+
   protected rows = signal<any[]>([]);
   protected loading = signal(true);
+  /** ?tesis={id} — llega desde el tablero de seguimiento para señalar de qué alumno se trata. */
+  protected resaltado = signal<string | null>(null);
 
-  ngOnInit(): void { this.cargar(); }
+  ngOnInit(): void {
+    this.resaltado.set(this._route.snapshot.queryParamMap.get('tesis'));
+    this.cargar();
+  }
 
   cargar(): void {
     this.loading.set(true);
@@ -127,13 +133,6 @@ export class CoordinadorProyectoComponent implements OnInit {
   designar(r: any): void {
     this._dialog.open(DesignarRevisoresDialogComponent, {
       width: '520px', maxWidth: '92vw', maxHeight: '90vh', autoFocus: false,
-      data: { tesisId: r.tesisId, estudiante: r.estudianteApellidos + ', ' + r.estudianteNombres, titulo: r.tituloTesis },
-    }).afterClosed().subscribe((ok) => { if (ok) this.cargar(); });
-  }
-
-  programar(r: any): void {
-    this._dialog.open(ProgramarDefensaDialogComponent, {
-      width: '540px', maxWidth: '92vw', maxHeight: '90vh', autoFocus: false,
       data: { tesisId: r.tesisId, estudiante: r.estudianteApellidos + ', ' + r.estudianteNombres, titulo: r.tituloTesis },
     }).afterClosed().subscribe((ok) => { if (ok) this.cargar(); });
   }

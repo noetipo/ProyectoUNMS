@@ -7,10 +7,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { RouterLink } from '@angular/router';
 import { debounceTime } from 'rxjs/operators';
 import { OauthService } from '@/app/providers/services/oauth/oauth.service';
 import { PersonaService } from '@/app/views/dashboard/personas/services/persona.service';
 import { PaginationControlsComponent, PaginationEvent } from '@/app/shared/pagination-controls/pagination-controls.component';
+import { AsignarTutorDialogComponent } from '@/app/views/dashboard/tutorias/components/asignar-tutor-dialog.component';
 import { RegistroTemaService } from '../services/registro-tema.service';
 import { RegistroTemaDialogComponent } from './registro-tema-dialog.component';
 import { claseEstadoDerivado, EstudianteTema, etiquetaEstadoDerivado, TemaResumen } from '../models/registro-tema.model';
@@ -21,6 +23,7 @@ import { claseEstadoDerivado, EstudianteTema, etiquetaEstadoDerivado, TemaResume
   imports: [
     CommonModule, ReactiveFormsModule, MatFormFieldModule, MatSelectModule,
     MatInputModule, MatButtonModule, MatIconModule, MatDialogModule, PaginationControlsComponent,
+    RouterLink,
   ],
   template: `
     <div class="page">
@@ -33,11 +36,19 @@ import { claseEstadoDerivado, EstudianteTema, etiquetaEstadoDerivado, TemaResume
           </div>
           <h1 class="page-title">Registro de tema y línea de investigación</h1>
         </div>
+        @if (puedeEditar) {
+          <!-- Único acceso a la asignación masiva: salió del menú lateral porque la designación
+               individual vive en esta misma pantalla. -->
+          <a mat-stroked-button class="!h-9 !text-xs !text-slate-600" routerLink="/admin/asignar-tutor"
+             title="Asignar un mismo tutor a varios alumnos a la vez">
+            <mat-icon svgIcon="users" class="size-3.5 mr-1" /> Asignar tutor en bloque
+          </a>
+        }
       </div>
 
       <!-- Resumen -->
       @if (resumen(); as r) {
-        <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <div class="rounded-xl border border-slate-100 p-4">
             <p class="text-2xl font-bold text-slate-800">{{ r.total }}</p>
             <p class="text-xs text-slate-400">Total estudiantes</p>
@@ -50,12 +61,36 @@ import { claseEstadoDerivado, EstudianteTema, etiquetaEstadoDerivado, TemaResume
             <p class="text-2xl font-bold text-rose-500">{{ r.sinTema }}</p>
             <p class="text-xs text-slate-400">Sin tema</p>
           </div>
+          <!-- El paso que sigue al registro del tema: designar tutor. -->
+          <div class="rounded-xl border p-4" [ngClass]="r.sinTutor ? 'border-amber-200 bg-amber-50/50' : 'border-slate-100'">
+            <p class="text-2xl font-bold" [ngClass]="r.sinTutor ? 'text-amber-600' : 'text-emerald-600'">{{ r.sinTutor ?? 0 }}</p>
+            <p class="text-xs text-slate-400">Con tema, sin tutor</p>
+          </div>
         </div>
+
+        <!-- Indicación explícita: el tema ya está, falta el tutor. -->
+        @if (r.sinTutor) {
+          <div class="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 mb-4">
+            <mat-icon svgIcon="user-plus" class="size-4 text-amber-600 shrink-0" />
+            <p class="text-[12.5px] text-amber-800 min-w-0">
+              <b>{{ r.sinTutor }}</b>
+              {{ r.sinTutor === 1 ? 'estudiante con tema registrado espera' : 'estudiantes con tema registrado esperan' }}
+              la <b>designación de su tutor</b> (Etapa 2).
+            </p>
+            @if (puedeEditar) {
+              <button mat-stroked-button class="!h-7 !text-xs ml-auto !border-amber-300 !text-amber-800"
+                      (click)="verPendientesDeTutor()">
+                Ver pendientes
+              </button>
+            }
+          </div>
+        }
       }
 
       <!-- Filtros -->
       <div class="page-toolbar">
-        <form [formGroup]="filterForm" class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+        <!-- 4 filtros = 4 columnas en escritorio: caben en una sola fila. -->
+        <form [formGroup]="filterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
           <mat-form-field appearance="outline" subscriptSizing="dynamic">
             <mat-icon matPrefix svgIcon="search" class="size-4 text-slate-400" />
             <input matInput formControlName="buscar" placeholder="Buscar por nombre o código…" />
@@ -91,6 +126,7 @@ import { claseEstadoDerivado, EstudianteTema, etiquetaEstadoDerivado, TemaResume
                 <th>Código</th>
                 <th>Programa</th>
                 <th>Estado de tema</th>
+                <th>Tutor</th>
                 @if (puedeEditar) { <th class="w-24 text-right">Acción</th> }
               </tr>
             </thead>
@@ -108,20 +144,47 @@ import { claseEstadoDerivado, EstudianteTema, etiquetaEstadoDerivado, TemaResume
                       <p class="text-[11px] text-slate-400 mt-0.5 max-w-[280px] truncate" [title]="e.titulo">{{ e.titulo }}</p>
                     }
                   </td>
+                  <td>
+                    @if (e.tutorNombre) {
+                      <span class="text-[12px] text-slate-600">{{ e.tutorNombre }}</span>
+                    } @else if (e.conTema) {
+                      <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Falta designar</span>
+                    } @else {
+                      <span class="text-[11px] text-slate-300">—</span>
+                    }
+                  </td>
                   @if (puedeEditar) {
                     <td class="text-right">
-                      @if (e.conTema) {
-                        <button mat-stroked-button class="!h-7 !text-xs !min-w-0 !px-3" (click)="abrir(e, true)">Editar</button>
-                      } @else {
-                        <button class="btn-dark !h-7 !text-xs !px-3" (click)="abrir(e, false)">Registrar</button>
-                      }
+                      <!-- Misma convención que el resto de tablas del sistema: .row-actions con
+                           botones de icono 7×7 y tooltip. El color marca la situación: granate =
+                           acción pendiente, ámbar = editar lo ya registrado, gris = cambio opcional. -->
+                      <div class="row-actions">
+                        @if (e.conTema) {
+                          <button mat-icon-button class="!w-7 !h-7" title="Editar tema" (click)="abrir(e, true)">
+                            <mat-icon svgIcon="pencil" class="text-amber-500 size-3.5" />
+                          </button>
+                          @if (e.tutorNombre) {
+                            <button mat-icon-button class="!w-7 !h-7" title="Cambiar tutor" (click)="asignarTutor(e)">
+                              <mat-icon svgIcon="user-round-pen" class="text-slate-400 size-3.5" />
+                            </button>
+                          } @else {
+                            <button mat-icon-button class="!w-7 !h-7" title="Asignar tutor (pendiente)" (click)="asignarTutor(e)">
+                              <mat-icon svgIcon="user-round-plus" class="text-[#8C1D2E] size-3.5" />
+                            </button>
+                          }
+                        } @else {
+                          <button mat-icon-button class="!w-7 !h-7" title="Registrar tema" (click)="abrir(e, false)">
+                            <mat-icon svgIcon="file-plus" class="text-[#8C1D2E] size-3.5" />
+                          </button>
+                        }
+                      </div>
                     </td>
                   }
                 </tr>
               }
               @empty {
                 <tr>
-                  <td [attr.colspan]="puedeEditar ? 5 : 4" class="text-center">
+                  <td [attr.colspan]="puedeEditar ? 6 : 5" class="text-center">
                     <div class="table-empty">
                       <mat-icon svgIcon="inbox" class="size-10 text-slate-200" />
                       <p class="table-empty__text">Sin estudiantes</p>
@@ -235,8 +298,36 @@ export class RegistroTemaReportComponent implements OnInit {
   abrir(estudiante: EstudianteTema, editar: boolean): void {
     this._dialog.open(RegistroTemaDialogComponent, { data: { estudiante, editar }, autoFocus: false })
       .afterClosed().subscribe((result) => {
-        if (result) { this.cargarResumen(); this.cargar(); }
+        if (!result) return;
+        this.cargarResumen();
+        this.cargar();
+        // Registrar el tema y designar tutor son pasos consecutivos: si el alumno aún no
+        // tiene tutor, se ofrece designarlo de inmediato en vez de mandarlo a otra pantalla.
+        if (!editar && !estudiante.tutorNombre) {
+          this.asignarTutor(estudiante, true);
+        }
       });
+  }
+
+  /** Filtra la lista a los que ya tienen tema, donde la columna Tutor marca "Falta designar". */
+  verPendientesDeTutor(): void {
+    this.filterForm.patchValue({ conTema: 'true' });
+  }
+
+  /** @param recienRegistrado true cuando viene encadenado del registro del tema */
+  asignarTutor(e: EstudianteTema, recienRegistrado = false): void {
+    this._dialog.open(AsignarTutorDialogComponent, {
+      data: {
+        estudianteId: e.estudianteId,
+        estudianteNombre: `${e.apellidos}, ${e.nombres}`,
+        tutorActual: e.tutorNombre ?? null,
+        recienRegistrado,
+      },
+      autoFocus: false,
+      width: '460px',
+    }).afterClosed().subscribe((ok) => {
+      if (ok) { this.cargarResumen(); this.cargar(); }
+    });
   }
 
   estadoLabel(e: EstudianteTema): string { return etiquetaEstadoDerivado(e.estadoDerivado ?? (e.conTema ? undefined : 'SIN_TEMA')); }

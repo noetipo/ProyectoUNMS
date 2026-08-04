@@ -18,4 +18,50 @@ export class SecretariaDefensaService {
   recibir$(tesisId: string): Observable<any> {
     return this._http.post<any>(`${this.base}/${tesisId}/recibir`, {});
   }
+
+  /** Proyectos con revisores designados que requieren (o ya tienen) la rúbrica oficial. */
+  bandejaRubricas$(buscar?: string): Observable<any> {
+    let params = new HttpParams();
+    if (buscar) params = params.set('buscar', buscar);
+    return this._http.get<any>(`${this.base}/rubricas`, { params });
+  }
+
+  /** Enciende/suspende la evaluación con la rúbrica oficial del sistema (no sube nada). */
+  habilitarRubrica$(tesisId: string, habilitar: boolean): Observable<any> {
+    return this._http.post<any>(`${this.base}/${tesisId}/rubrica/habilitar?habilitar=${habilitar}`, {});
+  }
+
+  /** Word de la rúbrica oficial vigente del enfoque (para la vista previa). */
+  rubricaOficialRaw$(enfoque: string): Observable<Blob> {
+    return this._http.get(`${environment.url}api/secretaria/rubricas-oficiales/vigente/${enfoque}/documento`,
+      { responseType: 'blob' });
+  }
+
+  /** Legado: adjunta un Word propio del expediente (caso excepcional). */
+  subirRubrica$(tesisId: string, archivo: File): Observable<any> {
+    const fd = new FormData();
+    fd.append('archivo', archivo);
+    return this._http.post<any>(`${this.base}/${tesisId}/rubrica`, fd);
+  }
+
+  /** Vista previa (texto) de la rúbrica subida, para confirmar que es el documento correcto. */
+  previewRubrica$(tesisId: string): Observable<any> {
+    return this._http.get<any>(`${this.base}/${tesisId}/rubrica/preview`);
+  }
+
+  /** El Word (.docx) crudo de la rúbrica, para renderizarlo en el navegador (vista previa fiel). */
+  descargarRubricaRaw$(tesisId: string): Observable<Blob> {
+    return this._http.get(`${this.base}/${tesisId}/rubrica/raw`, { responseType: 'blob' });
+  }
+
+  // ── Programación de la defensa (la realiza la Secretaría) ──
+  defensa$(tesisId: string): Observable<any> {
+    return this._http.get<any>(`${this.base}/${tesisId}/defensa`);
+  }
+  docentesDefensa$(tesisId: string): Observable<any> {
+    return this._http.get<any>(`${this.base}/${tesisId}/docentes-defensa`);
+  }
+  programarDefensa$(tesisId: string, body: any): Observable<any> {
+    return this._http.post<any>(`${this.base}/${tesisId}/defensa`, body);
+  }
 }

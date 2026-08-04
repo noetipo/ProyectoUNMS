@@ -22,6 +22,12 @@ export interface Expediente {
   tutorNombre?: string;
   lineaNombre?: string;
   avancePct: number;
+  /** Etapa en curso (1..8; 9 = proceso finalizado). */
+  etapaEnCurso?: number;
+  /** true desde la Etapa 4: hay dictamen de designación y ya se puede redactar el proyecto. */
+  proyectoHabilitado?: boolean;
+  /** true cuando el asesor emitió su carta: toca el cierre del expediente (Turnitin, final, envío). */
+  cierreHabilitado?: boolean;
   etapas: EtapaItem[];
 }
 

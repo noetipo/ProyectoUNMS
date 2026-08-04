@@ -11,6 +11,7 @@ import { PaginationControlsComponent, PaginationEvent } from '@/app/shared/pagin
 import { SolicitudAsesoriaService } from '../services/solicitud-asesoria.service';
 import { ESTADOS_SOLICITUD, SolicitudBandeja } from '../models/asesoria.model';
 import { ResponderDialogComponent } from './responder-dialog.component';
+import { SolicitudDetalleDialogComponent } from './solicitud-detalle-dialog.component';
 
 @Component({
   selector: 'app-bandeja-asesoria',
@@ -70,6 +71,9 @@ import { ResponderDialogComponent } from './responder-dialog.component';
                   <td class="text-slate-400 text-sm">{{ s.fechaSolicitud | date:'dd/MM/yyyy' }}</td>
                   <td>
                     <div class="row-actions">
+                      <button mat-icon-button class="!w-7 !h-7" (click)="verDetalle(s)" title="Revisar el tema y decidir">
+                        <mat-icon svgIcon="file-search" class="text-[#8C1D2E] size-3.5" />
+                      </button>
                       @if (s.estado === 'PENDIENTE') {
                         <button mat-icon-button class="!w-7 !h-7" (click)="aceptar(s)" title="Aceptar">
                           <mat-icon svgIcon="check" class="text-emerald-500 size-3.5" />
@@ -150,6 +154,16 @@ export class BandejaAsesoriaComponent implements OnInit {
     this.page.set(e.page);
     this.size.set(e.size);
     this.load();
+  }
+
+  /** Abre el tema del doctorando; desde ahí se puede aceptar o rechazar sin volver a la tabla. */
+  verDetalle(s: SolicitudBandeja): void {
+    this._dialog.open(SolicitudDetalleDialogComponent, {
+      data: s, autoFocus: false, panelClass: ['dialog-rounded', 'dialog-anim'],
+    }).afterClosed().subscribe((accion) => {
+      if (accion === 'aceptar') { this.aceptar(s); }
+      if (accion === 'rechazar') { this.rechazar(s); }
+    });
   }
 
   aceptar(s: SolicitudBandeja): void {

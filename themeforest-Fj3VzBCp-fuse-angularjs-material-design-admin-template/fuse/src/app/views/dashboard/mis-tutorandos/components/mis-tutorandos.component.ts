@@ -60,7 +60,7 @@ import { claseEstado, etiquetaEstado, MisTutorandosResumen, Tutorando } from '..
                 <th>Estado de tema</th>
                 <th class="w-24 text-center">Año ingreso</th>
                 <th class="w-28">Inicio tutoría</th>
-                <th class="w-32 text-right">Acciones</th>
+                <th class="w-24 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -80,9 +80,15 @@ import { claseEstado, etiquetaEstado, MisTutorandosResumen, Tutorando } from '..
                   <td class="text-slate-500 text-sm text-center">{{ t.anioIngreso ?? '—' }}</td>
                   <td class="text-slate-400 text-sm">{{ t.fechaInicio ? (t.fechaInicio | date:'dd/MM/yyyy') : '—' }}</td>
                   <td class="text-right">
-                    <button mat-stroked-button class="!h-7 !text-xs !min-w-0 !px-3" (click)="sugerir(t)">
-                      Sugerir asesores
-                    </button>
+                    <!-- Convención de acciones de fila: .row-actions con iconos 7×7 y tooltip. -->
+                    <div class="row-actions">
+                      <!-- handshake = asesoría en todo el sistema (mismo icono que usa la
+                           notificación de designación de asesor). Se evita la familia user-round-*,
+                           que aquí significa tutor. -->
+                      <button mat-icon-button class="!w-7 !h-7" title="Sugerir asesores" (click)="sugerir(t)">
+                        <mat-icon svgIcon="handshake" class="text-[#8C1D2E] size-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               }

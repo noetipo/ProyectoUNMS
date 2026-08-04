@@ -9,6 +9,7 @@ import { Router } from '@angular/router';
 import { ConfirmDialogService } from '@/app/shared/confirm-dialog/confirm-dialog.service';
 import { NotificationService } from '@/app/shared/notification/notification.service';
 import { DocumentoPreviewDialogComponent } from '@/app/shared/perfil-completo/documento-preview-dialog.component';
+import { RubricaAlumnoDialogComponent } from './rubrica-alumno-dialog.component';
 import { environment } from '@/environments/environment';
 import { MiProyectoService } from '../services/mi-proyecto.service';
 import { ActividadDialogComponent } from './actividad-dialog.component';
@@ -19,7 +20,7 @@ import { CitaInsertarDialogComponent } from './cita-insertar-dialog.component';
 import {
   ActividadItem, ESTADOS_ACTIVIDAD, FASES, FASE_ENUM, FASE_LABEL,
   FINANCIAMIENTOS, PROY_DEF, PartidaItem, ProyectoEditor, RUBROS, RevisionItem,
-  SeccionDef, chipRevision, tipoDot, tipoVerbo, ganttMeses, ganttColFecha, rangoFechas,
+  SeccionDef, chipRevision, tipoDot, tipoVerbo, rolBadge, ganttMeses, ganttColFecha, rangoFechas,
   ReferenciaItem, ESTILOS_CITA, RevisorEval,
 } from '../models/proyecto.model';
 
@@ -93,7 +94,7 @@ import {
 
       <div class="page-content p-6">
         @if (p(); as e) {
-          <div class="mx-auto max-w-[1080px] space-y-4">
+          <div class="mx-auto max-w-[1440px] space-y-4">
             <!-- Cabecera: enfoque (radio) + avance + acciones -->
             <section class="form-card">
               <p class="text-[11px] text-slate-400 mb-3">Autoguardado por campo en la base de datos (tabla proyecto_campos) · estructura según enfoque</p>
@@ -150,19 +151,86 @@ import {
               </div>
             </section>
 
+            <!-- Con la carta del asesor emitida, aquí ya no queda nada que hacer: el cierre del
+                 expediente es un trámite aparte, en su propia pestaña. Va arriba (no como un
+                 "paso" del editor) para que se vea apenas entra. -->
+            <!-- Solo mientras el cierre siga pendiente: una vez enviada la solicitud de aprobación
+                 este aviso ya no dirige a ninguna parte y estorba. -->
+            @if (e.cartaAsesor && !e.expedienteSubido) {
+              <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <div class="flex items-start gap-3">
+                  <mat-icon svgIcon="badge-check" class="size-6 text-emerald-600 shrink-0" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-[13px] font-semibold text-emerald-800">Tu asesor emitió la carta de opinión favorable</p>
+                    <p class="text-[12px] text-emerald-700">
+                      La redacción quedó cerrada. Lo que falta —Turnitin, proyecto en versión final y solicitud
+                      de aprobación— se hace en <b>Cierre y envío</b>.
+                    </p>
+                    <ul class="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+                      @for (r of pendientesCierre(e); track r.label) {
+                        <li class="flex items-center gap-1.5 text-[12px]">
+                          <mat-icon [svgIcon]="r.ok ? 'circle-check' : 'circle-dashed'" class="size-4 shrink-0"
+                                    [class]="r.ok ? 'text-emerald-600' : 'text-emerald-400'" />
+                          <span [class]="r.ok ? 'text-emerald-700' : 'text-emerald-800 font-medium'">{{ r.label }}</span>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                  <button mat-flat-button color="primary" class="!h-8 !text-[11.5px] shrink-0" (click)="irAlCierre()">
+                    <mat-icon svgIcon="send" class="size-3.5 mr-1" /> Ir a Cierre y envío
+                  </button>
+                </div>
+              </section>
+            }
+
             <!-- Aviso: dónde faltan corregir observaciones -->
             @if (observacionesPendientes() > 0) {
-              <section class="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
-                <p class="text-[12px] font-bold text-amber-700 mb-2">
-                  <mat-icon svgIcon="flag" class="size-3.5 mr-1 align-text-bottom" /> Tienes {{ observacionesPendientes() }} observación(es) sin corregir. Ve a cada ítem, corrígelo y pulsa "Marcar como corregido":
-                </p>
-                <div class="flex flex-wrap gap-2">
+              <!-- Compacto: el aviso acompaña, no acapara. Título y chips en la misma línea. -->
+              <section class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  <span class="flex items-center gap-1 text-[11.5px] font-bold text-amber-700 shrink-0">
+                    <mat-icon svgIcon="flag" class="size-3.5" /> {{ observacionesPendientes() }} por corregir
+                  </span>
                   @for (it of itemsPendientes(); track it.campo) {
-                    <button type="button" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-amber-200 text-amber-700 hover:bg-amber-100"
+                    <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-white border border-amber-200 text-amber-700 hover:bg-amber-100"
+                            [title]="it.seccion + ' · ' + it.label"
                             (click)="irAItem(it)">
-                      <span class="text-amber-400">{{ it.seccion }} ·</span> {{ it.label }}
+                      @if (it.origen === 'REVISOR') {
+                        <span class="px-1 rounded text-[9px] font-bold bg-rose-100 text-rose-700">REV</span>
+                      }
+                      {{ it.label }}
                       <mat-icon svgIcon="arrow-right" class="size-3" />
                     </button>
+                  }
+                  <span class="text-[10.5px] text-amber-600/80 ml-auto">Corrige y pulsa «Marcar como corregido»</span>
+                </div>
+              </section>
+            }
+
+            <!-- Terminaste de corregir lo del revisor: el botón aparece AQUÍ, al final de la
+                 corrección, y no arriba en la tarjeta del revisor (donde se leía como si fuera
+                 parte de su evaluación y confundía). -->
+            @if (revisoresPorResponder().length) {
+              <section class="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3">
+                <p class="flex items-center gap-1.5 text-[12.5px] font-bold text-emerald-800 mb-2">
+                  <mat-icon svgIcon="badge-check" class="size-4 shrink-0" /> Corregiste todas las observaciones
+                </p>
+                <!-- Un botón POR REVISOR: cada uno recibe tu respuesta por separado y vuelve a
+                     evaluar por su cuenta; con un solo botón no se sabía a quién estabas respondiendo. -->
+                <div class="space-y-1.5">
+                  @for (rv of revisoresPorResponder(); track rv.revisorId) {
+                    <div class="flex items-center gap-2 rounded-lg bg-white/70 border border-emerald-100 px-2.5 py-1.5">
+                      <span class="size-6 shrink-0 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center">
+                        {{ iniciales(rv.docenteNombre) }}
+                      </span>
+                      <span class="flex-1 min-w-0 text-[12px] text-emerald-800 truncate">
+                        {{ rv.docenteNombre || ('Revisor ' + rv.orden) }}
+                      </span>
+                      <button type="button" class="shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-[#8C1D2E] hover:bg-[#731725] shadow-sm transition"
+                              (click)="responderRevisor(rv)">
+                        <mat-icon svgIcon="reply" class="size-3.5" /> Levantar observaciones
+                      </button>
+                    </div>
                   }
                 </div>
               </section>
@@ -259,35 +327,73 @@ import {
 
             <!-- Etapa 5: revisores designados y estado de la evaluación -->
             @if (e.evaluacionesRevisores?.length) {
-              <section class="rounded-xl border border-slate-200 bg-white p-4">
-                <p class="text-[13px] font-bold text-slate-700">Revisores designados y estado de la evaluación</p>
-                <p class="text-[11.5px] text-slate-400 mb-3">Cada revisor evalúa con la rúbrica oficial (en línea o escaneada) · plazo 15 días útiles.</p>
-                <div class="space-y-2.5">
+              <section class="rounded-xl border border-slate-200 bg-white p-3.5">
+                <div class="flex flex-wrap items-baseline gap-x-2 mb-2.5">
+                  <p class="text-[12.5px] font-bold text-slate-700">Revisores designados</p>
+                  <p class="text-[11px] text-slate-400">· plazo 15 días útiles</p>
+                  <!-- Saber con qué te miden no debería ser un secreto: la misma rúbrica del revisor. -->
+                  <button type="button" class="ml-auto flex items-center gap-1 text-[11px] font-semibold text-[#8C1D2E] hover:underline"
+                          (click)="verRubrica()">
+                    <mat-icon svgIcon="scale" class="size-3.5" /> ¿Cómo me evalúan?
+                  </button>
+                </div>
+
+                @if (obsRevisorPendientes() > 0) {
+                  <div class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-700 flex items-start gap-1.5">
+                    <mat-icon svgIcon="flag" class="size-4 shrink-0 mt-px" />
+                    <span>Tienes <b>{{ obsRevisorPendientes() }}</b> observación(es) del revisor sin corregir. Corrige cada ítem con el botón verde <b>«Marcar como corregido»</b>; al terminar aparecerá el aviso para levantarlas.</span>
+                  </div>
+                }
+
+                <!-- Dos columnas: son dos revisores y cada tarjeta cabe de sobra en media pantalla. -->
+                <div class="grid gap-2.5 md:grid-cols-2 items-start">
                   @for (rv of e.evaluacionesRevisores; track rv.revisorId) {
-                    <div class="rounded-xl border border-slate-100 p-3">
-                      <div class="flex items-start gap-3">
-                        <span class="size-9 shrink-0 rounded-full bg-slate-100 text-slate-500 text-[12px] font-bold flex items-center justify-center">{{ iniciales(rv.docenteNombre) }}</span>
+                    <div class="rounded-lg border border-slate-100 p-2.5">
+                      <div class="flex items-start gap-2">
+                        <span class="size-7 shrink-0 rounded-full bg-slate-100 text-slate-500 text-[10.5px] font-bold flex items-center justify-center">{{ iniciales(rv.docenteNombre) }}</span>
                         <div class="flex-1 min-w-0">
-                          <p class="text-[13px] font-bold text-slate-800 leading-tight">{{ rv.docenteNombre || ('Revisor ' + rv.orden) }}</p>
-                          <p class="text-[11.5px] text-slate-400 leading-tight">
+                          <p class="text-[12px] font-bold text-slate-800 leading-tight truncate">{{ rv.docenteNombre || ('Revisor ' + rv.orden) }}</p>
+                          <p class="text-[10.5px] text-slate-400 leading-tight truncate">
                             {{ rv.docenteCategoria || '—' }}<span *ngIf="rv.docenteLinea"> · {{ rv.docenteLinea }}</span>
                           </p>
                         </div>
-                        @if (rv.puntajeTotal != null) { <span class="text-[10.5px] text-slate-400 shrink-0">{{ rv.puntajeTotal }}/20</span> }
                       </div>
-                      <div class="mt-2">
-                        <span class="px-2 py-0.5 rounded-md text-[10.5px] font-bold" [ngClass]="revEstadoBadge(rv.estado)">{{ revEstadoTexto(rv.estado) }}</span>
+                      <!-- Un solo veredicto a la vista: "Conforme" ya lo dice todo. La nota y el
+                           «aprobado/desaprobado» de la rúbrica quedan en «Ver detalle» — juntos
+                           sonaban a dos calificaciones distintas del mismo trabajo. -->
+                      <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span class="px-1.5 py-0.5 rounded text-[9.5px] font-bold" [ngClass]="revEstadoBadge(rv.estado)">{{ revEstadoTexto(rv.estado) }}</span>
+                        @if (rv.puntajeTotal != null) {
+                          <button type="button" class="flex items-center gap-0.5 text-[10px] font-semibold text-slate-400 hover:text-slate-600"
+                                  (click)="toggleDetalleRevisor(rv.revisorId)">
+                            {{ detalleRevisorAbierto(rv.revisorId) ? 'Ocultar detalle' : 'Ver detalle' }}
+                            <mat-icon [svgIcon]="detalleRevisorAbierto(rv.revisorId) ? 'chevron-up' : 'chevron-down'" class="size-3" />
+                          </button>
+                        }
                       </div>
-                      @if (rv.comentario) {
-                        <p class="text-[12px] text-slate-600 mt-2"><span class="font-semibold text-rose-500">Observación:</span> {{ rv.comentario }}</p>
+                      @if (rv.puntajeTotal != null && detalleRevisorAbierto(rv.revisorId)) {
+                        <div class="mt-1.5 flex items-center gap-2 rounded-md bg-slate-50 border border-slate-100 px-2 py-1">
+                          <span class="text-[11px] font-extrabold" [ngClass]="rv.aprobado ? 'text-emerald-600' : 'text-rose-600'">
+                            {{ rv.puntajeTotal }}/{{ rv.puntajeMaximo || 100 }}
+                          </span>
+                          <span class="text-[10px] text-slate-400">en la rúbrica oficial · aprueba con 65</span>
+                        </div>
                       }
-                      @if (rv.respuesta) {
-                        <p class="text-[12px] text-slate-700 mt-1 rounded-md bg-sky-50 border border-sky-100 px-2 py-1.5"><span class="font-semibold text-sky-600">Tu respuesta:</span> {{ rv.respuesta }}</p>
+                      @if (rv.comentario) {
+                        <p class="text-[11px] text-slate-600 mt-1.5 line-clamp-3" [title]="rv.comentario">
+                          <span class="font-semibold text-rose-500">Observación:</span> {{ rv.comentario }}
+                        </p>
                       }
                       @if (rv.estado === 'OBSERVADO' && !rv.respuesta) {
-                        <button mat-flat-button class="!h-7 !text-[11px] mt-2 !bg-[#8C1D2E] !text-white hover:!bg-[#731725]" (click)="responderRevisor(rv)">
-                          <mat-icon svgIcon="reply" class="size-3.5 mr-1" /> Levantar observación
-                        </button>
+                        <!-- El botón vive arriba, junto a los ítems por corregir: aquí solo se
+                             informa en qué punto está, para no duplicar la acción. -->
+                        <p class="text-[10.5px] mt-1.5 flex items-start gap-1 leading-snug"
+                           [ngClass]="obsRevisorPendientes() === 0 ? 'text-emerald-600' : 'text-amber-600'">
+                          <mat-icon [svgIcon]="obsRevisorPendientes() === 0 ? 'circle-check' : 'lock'" class="size-3 shrink-0 mt-px" />
+                          {{ obsRevisorPendientes() === 0
+                             ? 'Corregido: levántalas desde el aviso verde de arriba.'
+                             : 'Corrige los ítems observados para levantarlas.' }}
+                        </p>
                       }
                     </div>
                   }
@@ -313,12 +419,6 @@ import {
                     <span class="text-[10px] font-extrabold font-mono" [ngClass]="paso() === i ? 'text-white/85' : (stat(sec).full ? 'text-emerald-600' : 'text-slate-400')">{{ stat(sec).fil }}/{{ stat(sec).tot }}</span>
                   </button>
                 }
-                <button type="button" class="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition"
-                        [ngClass]="esCierre() ? 'bg-[#8C1D2E] text-white' : 'text-slate-600 hover:bg-slate-50'"
-                        (click)="irA(secciones().length)">
-                  <mat-icon svgIcon="flag" class="size-3.5 shrink-0" [ngClass]="esCierre() ? 'text-white' : 'text-slate-400'" />
-                  <span class="flex-1 text-[11.5px] font-semibold">Cierre y envío</span>
-                </button>
                 <div class="mx-1.5 mt-2 mb-1 px-3 py-2 rounded-lg bg-slate-50 text-[10.5px] text-slate-500 leading-relaxed">
                   Cada campo genera un <b>UPDATE</b> individual al dejar de escribir — nada se pierde al salir.
                 </div>
@@ -336,7 +436,8 @@ import {
 
                 <div class="space-y-4">
                   @for (c of sec.campos; track c.k) {
-                    <div>
+                    <!-- El id permite saltar directo al ítem observado desde el aviso de arriba. -->
+                    <div [id]="'campo-' + c.k" class="scroll-mt-4 rounded-lg transition-shadow">
                       <div class="flex items-center gap-2 mb-1">
                         <label class="form-label !mb-0">{{ c.l }}</label>
                         @if (!c.input && c.k !== 'hipotesis' && c.k !== 'referencias') {
@@ -400,14 +501,14 @@ import {
                                   [rows]="c.rows ?? 3" [value]="val(c.k)" [placeholder]="c.ph ?? ''"
                                   (focus)="onCitaFocus(c.k, $event)" (blur)="guardar(c.k, $event)"></textarea>
                       }
-                      @if (rev(c.k)?.eventos?.length) {
+                      @if (tieneHistorial(c.k)) {
                         <div class="mt-1.5">
                           <div class="flex items-center gap-3 flex-wrap">
                             <button type="button" class="flex items-center gap-1 text-[11px] font-semibold text-[#8C1D2E] hover:underline" (click)="toggleHist(c.k)">
                               <mat-icon [svgIcon]="histOpen(c.k) ? 'chevron-down' : 'chevron-right'" class="size-3.5" /> {{ histOpen(c.k) ? 'Ocultar' : 'Ver' }} historial ({{ rev(c.k)!.eventos.length }})
                             </button>
                             @if (rev(c.k)?.estado === 'OBSERVADO' || rev(c.k)?.estado === 'EN_CORRECCION') {
-                              <button type="button" class="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:underline" (click)="corregir(c.k, c.l)">
+                              <button type="button" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition" (click)="corregir(c.k, c.l)">
                                 <mat-icon svgIcon="check" class="size-3.5" /> Marcar como corregido
                               </button>
                             }
@@ -419,6 +520,7 @@ import {
                                   <li class="relative">
                                     <span class="absolute -left-[21px] top-[3px] size-2.5 rounded-full ring-2 ring-slate-50" [ngClass]="tipoDot(ev.tipo)"></span>
                                     <div class="flex items-baseline gap-1.5 flex-wrap leading-tight">
+                                      @if (rolBadge(ev.rol); as rb) { <span class="px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-wide" [ngClass]="rb.cls">{{ rb.label }}</span> }
                                       <b class="text-[11.5px] text-slate-700">{{ ev.autor }}</b>
                                       <span class="text-[11px] text-slate-500">{{ tipoVerbo(ev.tipo) }}</span>
                                       <span class="text-[10px] text-slate-400">· {{ ev.fecha }}</span>
@@ -456,10 +558,10 @@ import {
                 }
 
                 @if (sec.wPlan) {
-                  <div class="mt-4 pt-4 border-t border-slate-100 space-y-5">
+                  <div id="campo-plan" class="scroll-mt-4 mt-4 pt-4 border-t border-slate-100 space-y-5">
 
                     <!-- Revisión del plan de actividades (mini-historial) -->
-                    @if (rev('plan')?.eventos?.length) {
+                    @if (tieneHistorial('plan')) {
                       <div class="rounded-lg border border-slate-100 p-3">
                         <div class="flex items-center gap-2 flex-wrap mb-1">
                           <span class="text-[11px] font-bold text-slate-500">Revisión del plan de actividades</span>
@@ -470,7 +572,7 @@ import {
                             <mat-icon [svgIcon]="histOpen('plan') ? 'chevron-down' : 'chevron-right'" class="size-3.5" /> {{ histOpen('plan') ? 'Ocultar' : 'Ver' }} historial ({{ rev('plan')!.eventos.length }})
                           </button>
                           @if (rev('plan')?.estado === 'OBSERVADO' || rev('plan')?.estado === 'EN_CORRECCION') {
-                            <button type="button" class="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:underline" (click)="corregir('plan', 'Plan de actividades')">
+                            <button type="button" class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition" (click)="corregir('plan', 'Plan de actividades')">
                               <mat-icon svgIcon="check" class="size-3.5" /> Marcar como corregido
                             </button>
                           }
@@ -481,6 +583,7 @@ import {
                               <li class="relative">
                                 <span class="absolute -left-[21px] top-[3px] size-2.5 rounded-full ring-2 ring-white" [ngClass]="tipoDot(ev.tipo)"></span>
                                 <div class="flex items-baseline gap-1.5 flex-wrap leading-tight">
+                                  @if (rolBadge(ev.rol); as rb) { <span class="px-1.5 py-px rounded text-[9px] font-bold uppercase tracking-wide" [ngClass]="rb.cls">{{ rb.label }}</span> }
                                   <b class="text-[11.5px] text-slate-700">{{ ev.autor }}</b>
                                   <span class="text-[11px] text-slate-500">{{ tipoVerbo(ev.tipo) }}</span>
                                   <span class="text-[10px] text-slate-400">· {{ ev.fecha }}</span>
@@ -617,71 +720,15 @@ import {
                   </div>
                 }
               </section>
-            } @else {
-              <!-- Paso final: Cierre y envío (Turnitin + solicitud) -->
-              <section class="form-card">
-                <header class="form-card__head"><h2 class="form-card__title">Turnitin — informe de similitud</h2>
-                  <p class="text-[11px] text-slate-400">Índice máximo referencial: 20% (excluye citas, referencias y cadenas &lt; 8 palabras).</p></header>
-                <div class="flex flex-wrap items-center gap-3">
-                  <input type="number" min="0" max="100" class="w-24 rounded border border-slate-200 px-2 py-1.5 text-sm" placeholder="% similitud" [(ngModel)]="turnPct" />
-                  <button mat-flat-button color="primary" class="!h-9 !text-sm" (click)="fileTurn.click()">
-                    <mat-icon svgIcon="upload" class="size-3.5 mr-1" /> {{ e.turnitinSubido ? 'Reemplazar informe' : 'Subir informe (PDF)' }}
-                  </button>
-                  <input #fileTurn type="file" hidden accept=".pdf,.docx" (change)="onTurnitin($event)" />
-                  @if (e.turnitinSubido) {
-                    <span class="text-[12px] px-2 py-1 rounded" [ngClass]="(e.porcentajeSimilitud ?? 0) <= 20 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'">
-                      Similitud: {{ e.porcentajeSimilitud ?? 0 }}%
-                    </span>
-                    <button mat-icon-button class="!size-8" title="Ver informe enviado" (click)="verDoc('turnitin')"><mat-icon svgIcon="eye" class="size-4 text-slate-500" /></button>
-                  }
-                </div>
-              </section>
-
-              <section class="form-card">
-                <header class="form-card__head"><h2 class="form-card__title">Expediente y solicitud de aprobación</h2></header>
-                <!-- Proyecto versión final (PDF) -->
-                <div class="flex flex-wrap items-center gap-3 mb-3">
-                  <button mat-stroked-button class="!h-9 !text-sm !text-[#8C1D2E]" (click)="fileFinal.click()">
-                    <mat-icon svgIcon="upload" class="size-3.5 mr-1" /> {{ e.proyectoFinalSubido ? 'Reemplazar proyecto final' : 'Subir proyecto versión final (PDF)' }}
-                  </button>
-                  <input #fileFinal type="file" hidden accept=".pdf,.docx" (change)="onProyectoFinal($event)" />
-                  @if (e.proyectoFinalSubido) {
-                    <span class="text-[12px] px-2 py-1 rounded bg-emerald-50 text-emerald-700">Proyecto final cargado ✓</span>
-                    <button mat-icon-button class="!size-8" title="Ver proyecto final enviado" (click)="verDoc('proyecto-final')"><mat-icon svgIcon="eye" class="size-4 text-slate-500" /></button>
-                  }
-                </div>
-
-                <ul class="space-y-1.5 text-[13px] mb-3">
-                  <li>{{ check(e.listoRevision) }} Proyecto marcado listo para revisión</li>
-                  <li>{{ check(e.cartaAsesor) }} Carta de opinión favorable del asesor</li>
-                  <li>{{ check(e.turnitinSubido) }} Informe de Turnitin</li>
-                  <li>{{ check(e.proyectoFinalSubido) }} Proyecto versión final</li>
-                  <li>{{ check(e.expedienteSubido) }} Solicitud de aprobación generada</li>
-                </ul>
-                <button mat-flat-button color="primary" class="!h-9 !text-sm"
-                        [disabled]="!e.cartaAsesor || !e.turnitinSubido || !e.proyectoFinalSubido || e.expedienteSubido" (click)="solicitar()">
-                  <mat-icon svgIcon="send" class="size-3.5 mr-1" /> {{ e.expedienteSubido ? '✓ Solicitud enviada' : 'Solicitud de aprobación' }}
-                </button>
-                @if (!e.cartaAsesor) { <p class="text-[11px] text-slate-400 mt-1">Disponible cuando el asesor emita su carta de opinión favorable.</p> }
-                @if (e.expedienteSubido) {
-                  <div class="mt-2 rounded-lg px-3 py-2 text-[12px]" [ngClass]="e.expedienteRecibido ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-amber-50 border border-amber-200 text-amber-700'">
-                    @if (e.expedienteRecibido) {
-                      ✓ <b>Recibido por la Secretaría.</b> Tu proyecto pasó a la <b>Etapa 5 · Defensa del proyecto</b>; el Coordinador designará los revisores.
-                    } @else {
-                      ⏳ <b>Solicitud enviada.</b> Esperando que la Secretaría recepcione tu expediente.
-                    }
-                  </div>
-                }
-              </section>
             }
 
-            <!-- Navegación de pasos -->
+            <!-- Navegación de pasos (solo las secciones del proyecto: el cierre ya no es un paso) -->
             <div class="flex items-center justify-between">
               <button mat-stroked-button class="!h-9 !text-sm !rounded-lg" [disabled]="paso() === 0" (click)="anterior()">
                 <mat-icon svgIcon="chevron-left" class="size-4" /> Anterior
               </button>
               <span class="text-[12px] text-slate-400">Paso {{ paso() + 1 }} de {{ totalPasos() }}</span>
-              @if (!esCierre()) {
+              @if (paso() < totalPasos() - 1) {
                 <button mat-flat-button color="primary" class="!h-9 !text-sm !rounded-lg" (click)="siguiente()">
                   Siguiente <mat-icon svgIcon="chevron-right" class="size-4" />
                 </button>
@@ -719,6 +766,17 @@ import {
       </div>
     </div>
   `,
+  styles: [`
+    /* Al saltar a un ítem observado se destaca un momento: sin esto el alumno llega al campo
+       correcto pero no sabe cuál de todos era. */
+    .campo-destacado { animation: destello 2.2s ease-out; }
+    @keyframes destello {
+      0%   { box-shadow: 0 0 0 3px rgba(245, 158, 11, .55); background: rgba(254, 243, 199, .55); }
+      70%  { box-shadow: 0 0 0 3px rgba(245, 158, 11, .25); background: rgba(254, 243, 199, .25); }
+      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);     background: transparent; }
+    }
+    @media (prefers-reduced-motion: reduce) { .campo-destacado { animation: none; } }
+  `],
 })
 export class MiProyectoComponent implements OnInit {
   private _svc = inject(MiProyectoService);
@@ -763,8 +821,8 @@ export class MiProyectoComponent implements OnInit {
     const cual = e.enfoque === 'CUALITATIVO';
     return PROY_DEF.filter((s) => !(s.cuant && cual) && !(s.cual && !cual));
   });
-  protected totalPasos = computed(() => this.secciones().length + 1); // +1 = Cierre y envío
-  protected esCierre = computed(() => this.paso() >= this.secciones().length);
+  // El editor solo tiene las secciones del proyecto: el cierre del expediente es otra pantalla.
+  protected totalPasos = computed(() => this.secciones().length);
   protected secActual = computed<SeccionDef | null>(() => this.secciones()[this.paso()] ?? null);
 
   ngOnInit(): void { this.cargar(); }
@@ -817,8 +875,12 @@ export class MiProyectoComponent implements OnInit {
   observacionesPendientes(): number {
     return this.itemsPendientes().length;
   }
-  /** Detalle de los ítems por corregir: campo, etiqueta, sección y su paso, para navegar. */
-  itemsPendientes(): { campo: string; label: string; seccion: string; paso: number }[] {
+  /**
+   * Detalle de los ítems por corregir: campo, etiqueta, sección y su paso, para navegar.
+   * Incluye tanto las observaciones del asesor como las de los revisores (comparten el hilo por
+   * campo); `origen` dice de quién vino la última, para que el alumno sepa a quién responde.
+   */
+  itemsPendientes(): { campo: string; label: string; seccion: string; paso: number; origen: string }[] {
     const secs = this.secciones();
     const revs = (this.p()?.revisiones ?? []).filter((r) => r.estado === 'OBSERVADO' || r.estado === 'EN_CORRECCION');
     return revs.map((r) => {
@@ -828,10 +890,63 @@ export class MiProyectoComponent implements OnInit {
         if (c) { paso = i; label = c.l; seccion = s.titulo; }
         else if (r.campo === 'plan' && s.wPlan) { paso = i; label = 'Plan de actividades'; seccion = s.titulo; }
       });
-      return { campo: r.campo, label, seccion, paso };
+      const origen = [...(r.eventos ?? [])].reverse()
+        .find((ev) => ev.tipo === 'OBSERVACIÓN')?.rol ?? 'ASESOR';
+      return { campo: r.campo, label, seccion, paso, origen };
     });
   }
-  irAItem(it: { paso: number }): void { if (it.paso >= 0) this.irA(it.paso); }
+  /**
+   * Lleva al ítem observado: cambia de sección y además <b>baja hasta el campo</b>, lo resalta un
+   * momento y le pone el foco. Antes solo cambiaba de paso y el alumno tenía que buscarlo a mano
+   * en una pantalla larga, que es justo lo que el aviso pretendía evitar.
+   */
+  irAItem(it: { paso: number; campo: string }): void {
+    if (it.paso >= 0) this.irA(it.paso);
+    this.enfocarCampo(it.campo);
+  }
+
+  private enfocarCampo(campo: string): void {
+    if (typeof window === 'undefined') return;
+    // El cambio de paso re-renderiza la sección: hay que esperar a que el campo exista.
+    setTimeout(() => {
+      const el = document.getElementById('campo-' + campo);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('campo-destacado');
+      setTimeout(() => el.classList.remove('campo-destacado'), 2400);
+      const control = el.querySelector<HTMLElement>('textarea, input:not([type=hidden])');
+      control?.focus({ preventScroll: true });
+    }, 80);
+  }
+
+  // ── Etapa 5: seguimiento de las observaciones del revisor (por ítem) ──
+  /** Ítems observados por un revisor que siguen pendientes de corregir. */
+  obsRevisorPendientes(): number {
+    return (this.p()?.revisiones ?? []).filter((r) =>
+      (r.estado === 'OBSERVADO' || r.estado === 'EN_CORRECCION') &&
+      (r.eventos ?? []).some((ev) => ev.rol === 'REVISOR')).length;
+  }
+  /** Ítems observados por un revisor que el estudiante ya corrigió. */
+  obsRevisorCorregidos(): number {
+    return (this.p()?.revisiones ?? []).filter((r) =>
+      r.estado === 'CORREGIDO' &&
+      (r.eventos ?? []).some((ev) => ev.rol === 'REVISOR')).length;
+  }
+  /** ¿Hay algún revisor observado cuyas observaciones el estudiante aún no ha levantado? */
+  puedeLevantarRevisor(): boolean {
+    return (this.p()?.evaluacionesRevisores ?? []).some((rv) => rv.estado === 'OBSERVADO' && !rv.respuesta);
+  }
+
+  /**
+   * Revisores a los que ya se les puede responder: observaron, aún no les has respondido y no
+   * queda ningún ítem por corregir. Cada uno lleva su propio botón «Levantar observaciones»
+   * porque cada uno vuelve a evaluar por separado.
+   */
+  revisoresPorResponder(): any[] {
+    if (this.obsRevisorPendientes() > 0 || this.obsRevisorCorregidos() === 0) return [];
+    return (this.p()?.evaluacionesRevisores ?? [])
+      .filter((rv) => rv.estado === 'OBSERVADO' && !rv.respuesta);
+  }
 
 
   // ── Historial de cambios y correcciones ──
@@ -890,10 +1005,16 @@ export class MiProyectoComponent implements OnInit {
   val(k: string): string { return this.p()?.campos?.[k] ?? ''; }
   rev(k: string): RevisionItem | undefined { return this.p()?.revisiones?.find((r) => r.campo === k); }
   chip(k: string) { return chipRevision(this.rev(k)?.estado); }
+  /** ¿El ítem tiene historial relevante? Solo si fue observado alguna vez (asesor o revisor);
+   *  los ítems que el asesor solo aprobó directamente no muestran historial. */
+  tieneHistorial(k: string): boolean {
+    return (this.rev(k)?.eventos ?? []).some((ev) => ev.tipo === 'OBSERVACIÓN');
+  }
 
   // ── Mini-historial por campo (colapsable) ──
   protected tipoDot = tipoDot;
   protected tipoVerbo = tipoVerbo;
+  protected rolBadge = rolBadge;
   private histSet = signal<Set<string>>(new Set());
   toggleHist(k: string): void { const s = new Set(this.histSet()); s.has(k) ? s.delete(k) : s.add(k); this.histSet.set(s); }
   histOpen(k: string): boolean { return this.histSet().has(k); }
@@ -968,7 +1089,24 @@ export class MiProyectoComponent implements OnInit {
     return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase() || '—';
   }
   revEstadoTexto(e?: string): string {
-    return e === 'CONFORME' ? 'CONFORME' : e === 'OBSERVADO' ? 'CON OBSERVACIONES' : 'PENDIENTE DE EVALUAR';
+    return e === 'CONFORME' ? 'PROYECTO CONFORME'
+      : e === 'OBSERVADO' ? 'CON OBSERVACIONES'
+      : 'PENDIENTE DE EVALUAR';
+  }
+
+  /** Abre la rúbrica oficial (en blanco) con la que lo evaluarán. */
+  verRubrica(): void {
+    this._dialog.open(RubricaAlumnoDialogComponent, { maxWidth: '92vw', autoFocus: false });
+  }
+
+  /** Detalle (nota de la rúbrica) desplegado por revisor: el estado ya se ve sin abrirlo. */
+  private detallesRevisor = signal<Set<string>>(new Set());
+  detalleRevisorAbierto(id?: string): boolean { return !!id && this.detallesRevisor().has(id); }
+  toggleDetalleRevisor(id?: string): void {
+    if (!id) return;
+    const s = new Set(this.detallesRevisor());
+    s.has(id) ? s.delete(id) : s.add(id);
+    this.detallesRevisor.set(s);
   }
   revEstadoBadge(e?: string): string {
     return e === 'CONFORME' ? 'bg-emerald-100 text-emerald-700'
@@ -1235,41 +1373,19 @@ export class MiProyectoComponent implements OnInit {
     this._svc.eliminarPartida$(p.id).subscribe({ next: () => this.cargar(), error: (e) => this.fail(e) });
   }
 
-  // ── Turnitin ──
-  onTurnitin(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file) return;
-    this._svc.subirTurnitin$(file, this.turnPct ?? 0).subscribe({
-      next: () => { this._toast.success('Informe de Turnitin subido'); this.cargar(); },
-      error: (e) => this.fail(e),
-    });
+  // El Turnitin, el proyecto final y la solicitud de aprobación viven ahora en
+  // CierreEnvioComponent (pestaña "Cierre y envío"): el editor solo redacta.
+  irAlCierre(): void {
+    this._router.navigate(['/admin/mi-tesis/cierre']);
   }
 
-  verDoc(tipo: 'turnitin' | 'proyecto-final'): void {
-    this._svc.descargarDocumento$(tipo).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const nombre = tipo === 'turnitin' ? 'Informe de Turnitin' : 'Proyecto versión final';
-        this._dialog.open(DocumentoPreviewDialogComponent, {
-          data: { nombre, url, esPdf: (blob.type || 'application/pdf').includes('pdf') },
-          maxWidth: '92vw',
-        }).afterClosed().subscribe(() => setTimeout(() => URL.revokeObjectURL(url), 1000));
-      },
-      error: (e) => this.fail(e),
-    });
-  }
-
-  onProyectoFinal(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file) return;
-    this._svc.subirProyectoFinal$(file).subscribe({
-      next: () => { this._toast.success('Proyecto versión final subido'); this.cargar(); },
-      error: (e) => this.fail(e),
-    });
+  /** Qué le falta al alumno en el cierre; se muestra como resumen antes de mandarlo allá. */
+  pendientesCierre(e: any): { label: string; ok: boolean }[] {
+    return [
+      { label: 'Informe de Turnitin', ok: !!e?.turnitinSubido },
+      { label: 'Proyecto en versión final', ok: !!e?.proyectoFinalSubido },
+      { label: 'Solicitud de aprobación', ok: !!e?.expedienteSubido },
+    ];
   }
 
   // ── Hitos ──
@@ -1287,10 +1403,6 @@ export class MiProyectoComponent implements OnInit {
       this._svc.publicarPlan$().subscribe({ next: () => { this._toast.success('Plan de actividades publicado'); this.cargar(); }, error: (e) => this.fail(e) });
     }).catch(() => {});
   }
-  solicitar(): void {
-    this._svc.solicitarAprobacion$().subscribe({ next: () => { this._toast.success('Solicitud de aprobación registrada'); this.cargar(); }, error: (e) => this.fail(e) });
-  }
-
   // ── DEMO / pruebas ──
   seedDemo(): void {
     this._confirm.confirmSave({
@@ -1333,6 +1445,6 @@ export class MiProyectoComponent implements OnInit {
   }
 
   check(ok: boolean): string { return ok ? '✅' : '⬜'; }
-  volver(): void { this._router.navigate(['/admin/expediente']); }
+  volver(): void { this._router.navigate(['/admin/mi-tesis/avance']); }
   private fail(e: any): void { this._toast.error(e?.error?.message ?? 'No se pudo completar la acción'); }
 }

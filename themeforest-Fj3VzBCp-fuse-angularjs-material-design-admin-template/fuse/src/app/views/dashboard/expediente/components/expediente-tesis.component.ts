@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ExpedienteService } from '../services/expediente.service';
 import { Expediente, claseEtapa, etiquetaEtapa } from '../models/expediente.model';
 
@@ -20,13 +20,20 @@ import { Expediente, claseEtapa, etiquetaEtapa } from '../models/expediente.mode
       <div class="page-header">
         <div>
           <p class="breadcrumb">Proceso de Tesis · {{ exp()?.programaNombre ?? 'Posgrado' }}</p>
-          <h1 class="page-title">Expediente de tesis</h1>
+          <h1 class="page-title">
+            @if (ajeno()) { Expediente de {{ exp()?.doctorandoNombre ?? 'doctorando' }} } @else { Expediente de tesis }
+          </h1>
         </div>
+        @if (ajeno()) {
+          <button mat-stroked-button class="!h-9 !text-xs !text-slate-600" (click)="volverAlSeguimiento()">
+            <mat-icon svgIcon="arrow-left" class="size-3.5 mr-1" /> Volver al seguimiento
+          </button>
+        }
       </div>
 
       <div class="page-content p-6">
         @if (exp(); as e) {
-          <div class="mx-auto max-w-[1000px] space-y-4">
+          <div class="mx-auto max-w-[1280px] space-y-4">
             <!-- Cabecera -->
             <section class="form-card">
               <div class="flex flex-wrap items-start justify-between gap-4">
@@ -84,7 +91,7 @@ import { Expediente, claseEtapa, etiquetaEtapa } from '../models/expediente.mode
                           <mat-icon svgIcon="file-text" class="size-3.5" /> {{ et.dictamenLabel }}
                         </span>
                       }
-                      @if (et.numero === 4 && et.estado === 'EN_CURSO') {
+                      @if (et.numero === 4 && et.estado === 'EN_CURSO' && !ajeno()) {
                         <div class="mt-2">
                           <button mat-flat-button color="primary" class="!h-8 !text-xs" (click)="abrirEditor()">
                             <mat-icon svgIcon="square-pen" class="size-3.5 mr-1" /> Abrir editor del proyecto
@@ -109,20 +116,34 @@ import { Expediente, claseEtapa, etiquetaEtapa } from '../models/expediente.mode
 export class ExpedienteTesisComponent implements OnInit {
   private _svc = inject(ExpedienteService);
   private _router = inject(Router);
+  private _route = inject(ActivatedRoute);
 
   protected exp = signal<Expediente | null>(null);
   protected err = signal<string | null>(null);
   protected claseEtapa = claseEtapa;
   protected etiquetaEtapa = etiquetaEtapa;
 
+  /**
+   * Con :tesisId en la ruta es la consulta de la Secretaría/Coordinación sobre un doctorando;
+   * sin él, es el expediente del estudiante autenticado. Misma línea de tiempo en ambos casos.
+   */
+  protected ajeno = signal(false);
+
   ngOnInit(): void {
-    this._svc.miExpediente$().subscribe({
+    const tesisId = this._route.snapshot.paramMap.get('tesisId');
+    this.ajeno.set(!!tesisId);
+    const carga$ = tesisId ? this._svc.porTesis$(tesisId) : this._svc.miExpediente$();
+    carga$.subscribe({
       next: (res) => this.exp.set(res?.data ?? res),
       error: (e) => this.err.set(e?.error?.message ?? 'No se pudo cargar el expediente'),
     });
   }
 
   abrirEditor(): void {
-    this._router.navigate(['/admin/mi-proyecto']);
+    this._router.navigate(['/admin/mi-tesis/proyecto']);
+  }
+
+  volverAlSeguimiento(): void {
+    this._router.navigate(['/admin/seguimiento-alumnos']);
   }
 }

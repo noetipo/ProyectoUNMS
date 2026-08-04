@@ -3,6 +3,8 @@ export interface TemaResumen {
   total: number;
   conTema: number;
   sinTema: number;
+  /** Sin tutoría vigente: el paso que sigue al registro del tema. */
+  sinTutor?: number;
 }
 
 /** Fila del reporte: estudiante con/sin tema. */
@@ -20,6 +22,8 @@ export interface EstudianteTema {
   lineaNombre?: string;
   estado?: string;          // tesis.estado
   estadoDerivado?: string;  // SIN_TEMA | SIN_ASESOR | <estado tesis>
+  /** Tutor vigente; null/undefined = aún sin designar. */
+  tutorNombre?: string;
 }
 
 /** Tema de investigación registrado (respuesta y perfil). */

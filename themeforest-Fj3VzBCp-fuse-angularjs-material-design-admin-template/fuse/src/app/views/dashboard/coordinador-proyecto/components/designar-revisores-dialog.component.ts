@@ -26,7 +26,7 @@ export interface DesignarRevisoresData {
       </div>
 
       <div class="px-4 flex-1 min-h-0 overflow-y-auto">
-        <p class="text-[12px] text-slate-500 mb-2">Selecciona <b>exactamente 2 docentes</b> como revisores (Jurado Informante del proyecto). No puede ser el asesor.</p>
+        <p class="text-[12px] text-slate-500 mb-2">Selecciona <b>exactamente 2 docentes de la línea de investigación de la tesis</b> como revisores. No puede ser el asesor.</p>
 
         <input class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm mb-2 focus:outline-none focus:border-[#8C1D2E]"
                [(ngModel)]="filtro" placeholder="Buscar docente…" />
@@ -43,7 +43,11 @@ export interface DesignarRevisoresData {
               @if (d.categoria) { <span class="text-[10px] text-slate-400">{{ d.categoria }}</span> }
             </button>
           }
-          @if (!filtrados().length) { <p class="px-3 py-3 text-[12px] text-slate-400">Sin resultados.</p> }
+          @if (!filtrados().length) {
+            <p class="px-3 py-3 text-[12px] text-slate-400">
+              {{ docentes().length ? 'Sin resultados para tu búsqueda.' : 'No hay docentes de la línea de investigación de la tesis disponibles como revisores.' }}
+            </p>
+          }
         </div>
       </div>
 
@@ -81,7 +85,7 @@ export class DesignarRevisoresDialogComponent {
     public dialogRef: MatDialogRef<DesignarRevisoresDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: DesignarRevisoresData,
   ) {
-    this._svc.docentes$().subscribe({
+    this._svc.docentes$(this.data.tesisId).subscribe({
       next: (res) => this.docentes.set((res?.data ?? res) ?? []),
       error: () => this._toast.error('No se pudieron cargar los docentes'),
     });

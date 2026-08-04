@@ -90,6 +90,9 @@ export const END_POINTS = {
   juradoInforme: {
     base: 'api/jurado-informe', // Etapa 7 · Jurado Informante del informe final
   },
+  seguimiento: {
+    base: 'api/seguimiento', // tablero de etapas y pendientes (secretaría/coordinación)
+  },
   catalog: { base: 'api/catalog' },
   client: { base: 'api/client' },
   reports: { base: 'api/reports' },

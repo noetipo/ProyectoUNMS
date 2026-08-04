@@ -18,8 +18,11 @@ export class SugerenciaAsesorService {
     return this._http.get<any>(`${this.base}/estudiantes/${estudianteId}/asesores-candidatos`);
   }
 
-  sugerir$(estudianteId: string, asesorDocenteId: string, nota?: string): Observable<any> {
-    return this._http.post<any>(`${this.base}/estudiantes/${estudianteId}/sugerencias`, { asesorDocenteId, nota });
+  /** @param tipo puesto para el que se sugiere: ASESOR (principal, uno solo) o COASESOR. */
+  sugerir$(estudianteId: string, asesorDocenteId: string,
+           tipo: 'ASESOR' | 'COASESOR' = 'ASESOR', nota?: string): Observable<any> {
+    return this._http.post<any>(`${this.base}/estudiantes/${estudianteId}/sugerencias`,
+      { asesorDocenteId, tipo, nota });
   }
 
   quitar$(sugerenciaId: string): Observable<any> {

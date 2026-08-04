@@ -124,33 +124,54 @@ const routes: Routes = [
           import('@/app/views/dashboard/mis-tutorandos/components/mis-tutorandos.component').then((m) => m.MisTutorandosComponent),
       },
       {
+        path: 'rubricas-oficiales',
+        canActivate: [roleGuard('SECRETARIA', 'ADMIN', 'COORDINADOR', 'COORD_PROG')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/rubricas-oficiales/components/rubricas-oficiales.component').then((m) => m.RubricasOficialesComponent),
+      },
+      {
         path: 'registro-tema',
         canActivate: [roleGuard('COORDINADOR', 'COORD_PROG', 'COORD_SEC', 'ADMIN', 'SECRETARIA')],
         loadComponent: () =>
           import('@/app/views/dashboard/registro-tema/components/registro-tema-report.component').then((m) => m.RegistroTemaReportComponent),
       },
-      {
-        path: 'mi-asesoria',
-        canActivate: [roleGuard('ESTUDIANTE')],
-        loadComponent: () =>
-          import('@/app/views/dashboard/mi-asesoria/components/mi-asesoria.component').then((m) => m.MiAsesoriaComponent),
-      },
-
       // -----------------------------------------------------------------------
-      // Proceso de tesis · Etapa 4 · Elaboración del proyecto
+      // Estudiante · "Mi tesis": una sola entrada de menú con pestañas
+      // (avance del proceso · editor del proyecto · asesoría).
       // -----------------------------------------------------------------------
       {
-        path: 'expediente',
+        path: 'mi-tesis',
         canActivate: [roleGuard('ESTUDIANTE')],
         loadComponent: () =>
-          import('@/app/views/dashboard/expediente/components/expediente-tesis.component').then((m) => m.ExpedienteTesisComponent),
+          import('@/app/views/dashboard/mi-tesis/components/mi-tesis.component').then((m) => m.MiTesisComponent),
+        children: [
+          { path: '', redirectTo: 'avance', pathMatch: 'full' },
+          {
+            path: 'avance',
+            loadComponent: () =>
+              import('@/app/views/dashboard/expediente/components/expediente-tesis.component').then((m) => m.ExpedienteTesisComponent),
+          },
+          {
+            path: 'proyecto',
+            loadComponent: () =>
+              import('@/app/views/dashboard/mi-proyecto/components/mi-proyecto.component').then((m) => m.MiProyectoComponent),
+          },
+          {
+            path: 'cierre',
+            loadComponent: () =>
+              import('@/app/views/dashboard/mi-proyecto/components/cierre-envio.component').then((m) => m.CierreEnvioComponent),
+          },
+          {
+            path: 'asesoria',
+            loadComponent: () =>
+              import('@/app/views/dashboard/mi-asesoria/components/mi-asesoria.component').then((m) => m.MiAsesoriaComponent),
+          },
+        ],
       },
-      {
-        path: 'mi-proyecto',
-        canActivate: [roleGuard('ESTUDIANTE')],
-        loadComponent: () =>
-          import('@/app/views/dashboard/mi-proyecto/components/mi-proyecto.component').then((m) => m.MiProyectoComponent),
-      },
+      // Rutas antiguas (enlaces de las notificaciones y marcadores) → pestaña equivalente.
+      { path: 'mi-asesoria', redirectTo: 'mi-tesis/asesoria', pathMatch: 'full' },
+      { path: 'expediente', redirectTo: 'mi-tesis/avance', pathMatch: 'full' },
+      { path: 'mi-proyecto', redirectTo: 'mi-tesis/proyecto', pathMatch: 'full' },
       {
         path: 'revision-proyecto',
         canActivate: [roleGuard('ASESOR')],
@@ -174,6 +195,20 @@ const routes: Routes = [
         canActivate: [roleGuard('PROF_TUTOR')],
         loadComponent: () =>
           import('@/app/views/dashboard/supervision-proyecto/components/supervision-proyecto.component').then((m) => m.SupervisionProyectoComponent),
+      },
+      {
+        path: 'seguimiento-alumnos',
+        canActivate: [roleGuard('SECRETARIA', 'COORDINADOR', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/seguimiento-alumnos/components/seguimiento-alumnos.component').then((m) => m.SeguimientoAlumnosComponent),
+      },
+      {
+        // Expediente de UN doctorando (consulta de secretaría/coordinación) — misma línea de
+        // tiempo que ve el alumno, en modo lectura.
+        path: 'expedientes/:tesisId',
+        canActivate: [roleGuard('SECRETARIA', 'COORDINADOR', 'COORD_PROG', 'COORD_SEC', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/expediente/components/expediente-tesis.component').then((m) => m.ExpedienteTesisComponent),
       },
       {
         path: 'secretaria-defensa',

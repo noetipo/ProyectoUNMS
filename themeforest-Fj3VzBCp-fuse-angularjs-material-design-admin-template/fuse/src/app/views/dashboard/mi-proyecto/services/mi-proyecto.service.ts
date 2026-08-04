@@ -105,6 +105,15 @@ export class MiProyectoService {
   descargarDocumento$(tipo: 'turnitin' | 'proyecto-final'): Observable<Blob> {
     return this._http.get(`${this.base}/documentos/${tipo}`, { responseType: 'blob' });
   }
+  /** La rúbrica (en blanco) con la que evaluarán el proyecto: "¿cómo me evalúan?". */
+  rubrica$(): Observable<any> {
+    return this._http.get<any>(`${this.base}/rubrica`);
+  }
+  /** Word oficial vigente de esa rúbrica. */
+  rubricaDocumento$(): Observable<Blob> {
+    return this._http.get(`${this.base}/rubrica/documento`, { responseType: 'blob' });
+  }
+
   solicitarAprobacion$(): Observable<any> {
     return this._http.post<any>(`${this.base}/expediente/solicitar-aprobacion`, {});
   }
