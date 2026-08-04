@@ -123,17 +123,17 @@ class DatabaseSeederTest {
         }
 
         @Test
-        void guarda3ModulosPadres() {
+        void guarda4ModulosPadres() {
             mockAllNew();
             seeder.onStart(event);
-            verify(parentModuleRepository, times(3)).save(any(ParentModule.class));
+            verify(parentModuleRepository, times(4)).save(any(ParentModule.class));
         }
 
         @Test
-        void guarda30Modulos() {
+        void guarda33Modulos() {
             mockAllNew();
             seeder.onStart(event);
-            verify(moduleRepository, times(30)).save(any(Module.class));
+            verify(moduleRepository, times(33)).save(any(Module.class));
         }
 
         @Test
@@ -158,10 +158,10 @@ class DatabaseSeederTest {
         }
 
         @Test
-        void guarda68AsignacionesRoleModule() {
+        void guarda69AsignacionesRoleModule() {
             mockAllNew();
             seeder.onStart(event);
-            verify(roleModuleRepository, times(68)).save(any(RoleModule.class));
+            verify(roleModuleRepository, times(69)).save(any(RoleModule.class));
         }
 
         @Test

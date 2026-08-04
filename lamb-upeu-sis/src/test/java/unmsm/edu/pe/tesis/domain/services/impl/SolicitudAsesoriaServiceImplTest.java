@@ -3,6 +3,7 @@ package unmsm.edu.pe.tesis.domain.services.impl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -24,9 +25,11 @@ import unmsm.edu.pe.tesis.application.dto.CrearSolicitudRequest;
 import unmsm.edu.pe.tesis.application.dto.ResponderSolicitudRequest;
 import unmsm.edu.pe.tesis.application.dto.SolicitudResponse;
 import unmsm.edu.pe.tesis.application.mapper.SolicitudAsesoriaMapper;
+import unmsm.edu.pe.tesis.domain.entities.Asesoria;
 import unmsm.edu.pe.tesis.domain.entities.SolicitudAsesoria;
 import unmsm.edu.pe.tesis.domain.enums.DecisionSolicitud;
 import unmsm.edu.pe.tesis.domain.enums.EstadoSolicitud;
+import unmsm.edu.pe.tesis.domain.enums.TipoAsesoria;
 import unmsm.edu.pe.tesis.domain.repositories.SolicitudAsesoriaRepository;
 
 import java.util.Optional;
@@ -46,8 +49,10 @@ class SolicitudAsesoriaServiceImplTest {
     @Mock LineaInvestigacionRepository lineaInvestigacionRepository;
     @Mock DocenteLineaInvestigacionRepository docenteLineaRepository;
     @Mock SolicitudAsesoriaRepository solicitudRepository;
+    @Mock unmsm.edu.pe.tesis.domain.repositories.SugerenciaAsesorRepository sugerenciaRepository;
     @Mock unmsm.edu.pe.tesis.domain.repositories.TesisAutorRepository tesisAutorRepository;
     @Mock unmsm.edu.pe.tesis.domain.repositories.AsesoriaRepository asesoriaRepository;
+    @Mock AsesorRolService asesorRolService;
 
     @Mock unmsm.edu.pe.tesis.domain.services.ResolverDatosPlantillaService resolverPlantilla;
     @Spy com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -104,6 +109,7 @@ class SolicitudAsesoriaServiceImplTest {
         when(lineaInvestigacionRepository.buscarPorId(lineaId))
                 .thenReturn(Optional.of(LineaInvestigacion.builder().id(lineaId).nombre("IA").build()));
         when(docenteLineaRepository.existsByDocenteAndLinea(docenteId, lineaId)).thenReturn(true);
+        when(sugerenciaRepository.existe(personaId, docenteId)).thenReturn(true);
         when(solicitudRepository.existePendientePorEstudiante(personaId)).thenReturn(false);
         when(solicitudRepository.save(any())).thenAnswer(i -> i.getArgument(0));
 
@@ -112,6 +118,100 @@ class SolicitudAsesoriaServiceImplTest {
         assertEquals("PENDIENTE", res.getEstado());
         assertEquals(docenteId, res.getDocenteId());
         assertEquals(personaId, res.getEstudianteId());
+        verify(solicitudRepository).save(any(SolicitudAsesoria.class));
+    }
+
+    // ── regla: 1 asesor + 1 co-asesor (opcional) ──
+
+    /** Deja la solicitud lista para pasar todas las validaciones previas al cupo. */
+    private void stubCrearValido() {
+        stubEstudianteAutenticado();
+        when(docenteRepository.findByPersonaId(docenteId))
+                .thenReturn(Optional.of(Docente.builder().personaId(docenteId).build()));
+        when(lineaInvestigacionRepository.buscarPorId(lineaId))
+                .thenReturn(Optional.of(LineaInvestigacion.builder().id(lineaId).nombre("IA").build()));
+        when(docenteLineaRepository.existsByDocenteAndLinea(docenteId, lineaId)).thenReturn(true);
+        when(sugerenciaRepository.existe(personaId, docenteId)).thenReturn(true);
+        when(solicitudRepository.existePendientePorEstudiante(personaId)).thenReturn(false);
+    }
+
+    private Asesoria asesoriaDe(UUID tesisId, UUID docente, String tipo) {
+        return Asesoria.builder().tesisId(tesisId).docenteId(docente).tipo(tipo).build();
+    }
+
+    @Test
+    void crear_comoAsesor_cuandoYaHayAsesor_lanzaBusiness() {
+        stubCrearValido();
+        UUID tesisId = UUID.randomUUID();
+        when(tesisAutorRepository.tesisActivaId(personaId)).thenReturn(tesisId);
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR"))
+                .thenReturn(Optional.of(asesoriaDe(tesisId, UUID.randomUUID(), "ASESOR")));
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.crear(crearRequest()));
+        assertTrue(ex.getMessage().contains("co-asesor"));
+        verify(solicitudRepository, never()).save(any());
+    }
+
+    @Test
+    void crear_comoCoasesor_sinAsesorPrevio_lanzaBusiness() {
+        stubCrearValido();
+        UUID tesisId = UUID.randomUUID();
+        when(tesisAutorRepository.tesisActivaId(personaId)).thenReturn(tesisId);
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR")).thenReturn(Optional.empty());
+
+        CrearSolicitudRequest r = crearRequest();
+        r.setTipo(TipoAsesoria.COASESOR);
+
+        assertThrows(BusinessException.class, () -> service.crear(r));
+        verify(solicitudRepository, never()).save(any());
+    }
+
+    @Test
+    void crear_comoCoasesor_cuandoYaHayCoasesor_lanzaBusiness() {
+        stubCrearValido();
+        UUID tesisId = UUID.randomUUID();
+        when(tesisAutorRepository.tesisActivaId(personaId)).thenReturn(tesisId);
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR"))
+                .thenReturn(Optional.of(asesoriaDe(tesisId, UUID.randomUUID(), "ASESOR")));
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "COASESOR"))
+                .thenReturn(Optional.of(asesoriaDe(tesisId, UUID.randomUUID(), "COASESOR")));
+
+        CrearSolicitudRequest r = crearRequest();
+        r.setTipo(TipoAsesoria.COASESOR);
+
+        assertThrows(BusinessException.class, () -> service.crear(r));
+        verify(solicitudRepository, never()).save(any());
+    }
+
+    @Test
+    void crear_comoCoasesor_conElMismoDocenteQueYaEsAsesor_lanzaBusiness() {
+        stubCrearValido();
+        UUID tesisId = UUID.randomUUID();
+        when(tesisAutorRepository.tesisActivaId(personaId)).thenReturn(tesisId);
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR"))
+                .thenReturn(Optional.of(asesoriaDe(tesisId, docenteId, "ASESOR")));
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "COASESOR")).thenReturn(Optional.empty());
+
+        CrearSolicitudRequest r = crearRequest();
+        r.setTipo(TipoAsesoria.COASESOR);
+
+        assertThrows(BusinessException.class, () -> service.crear(r));
+    }
+
+    @Test
+    void crear_comoCoasesor_conAsesorYCupoLibre_registraPendiente() {
+        stubCrearValido();
+        UUID tesisId = UUID.randomUUID();
+        when(tesisAutorRepository.tesisActivaId(personaId)).thenReturn(tesisId);
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR"))
+                .thenReturn(Optional.of(asesoriaDe(tesisId, UUID.randomUUID(), "ASESOR")));
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "COASESOR")).thenReturn(Optional.empty());
+        when(solicitudRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        CrearSolicitudRequest r = crearRequest();
+        r.setTipo(TipoAsesoria.COASESOR);
+
+        assertEquals("PENDIENTE", service.crear(r).getEstado());
         verify(solicitudRepository).save(any(SolicitudAsesoria.class));
     }
 
@@ -136,7 +236,22 @@ class SolicitudAsesoriaServiceImplTest {
         when(lineaInvestigacionRepository.buscarPorId(lineaId))
                 .thenReturn(Optional.of(LineaInvestigacion.builder().id(lineaId).nombre("IA").build()));
         when(docenteLineaRepository.existsByDocenteAndLinea(docenteId, lineaId)).thenReturn(true);
+        when(sugerenciaRepository.existe(personaId, docenteId)).thenReturn(true);
         when(solicitudRepository.existePendientePorEstudiante(personaId)).thenReturn(true);
+
+        assertThrows(BusinessException.class, () -> service.crear(crearRequest()));
+        verify(solicitudRepository, never()).save(any());
+    }
+
+    @Test
+    void crear_asesorNoSugeridoPorTutor_lanzaBusiness() {
+        stubEstudianteAutenticado();
+        when(docenteRepository.findByPersonaId(docenteId))
+                .thenReturn(Optional.of(Docente.builder().personaId(docenteId).build()));
+        when(lineaInvestigacionRepository.buscarPorId(lineaId))
+                .thenReturn(Optional.of(LineaInvestigacion.builder().id(lineaId).nombre("IA").build()));
+        when(docenteLineaRepository.existsByDocenteAndLinea(docenteId, lineaId)).thenReturn(true);
+        when(sugerenciaRepository.existe(personaId, docenteId)).thenReturn(false); // el tutor no lo sugirió
 
         assertThrows(BusinessException.class, () -> service.crear(crearRequest()));
         verify(solicitudRepository, never()).save(any());
@@ -176,6 +291,52 @@ class SolicitudAsesoriaServiceImplTest {
         assertEquals("ACEPTADA", res.getEstado());
         assertNotNull(res.getFechaRespuesta());
         assertEquals(EstadoSolicitud.ACEPTADA, s.getEstado());
+    }
+
+    @Test
+    void responder_aceptarCoasesoria_creaAsesoriaCOASESOR_yOtorgaRol() {
+        UUID docP = UUID.randomUUID();
+        UUID estP = UUID.randomUUID();
+        UUID tesisId = UUID.randomUUID();
+        stubDocenteAutenticado(docP);
+
+        SolicitudAsesoria s = solicitudPendiente(docP, estP);
+        s.setTipo(TipoAsesoria.COASESOR);
+        when(solicitudRepository.buscarPorId(s.getId())).thenReturn(Optional.of(s));
+        when(solicitudRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(tesisAutorRepository.tesisActivaId(estP)).thenReturn(tesisId);
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR"))
+                .thenReturn(Optional.of(asesoriaDe(tesisId, UUID.randomUUID(), "ASESOR")));
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "COASESOR")).thenReturn(Optional.empty());
+
+        service.responder(s.getId(), new ResponderSolicitudRequest(DecisionSolicitud.ACEPTAR, null));
+
+        ArgumentCaptor<Asesoria> captor = ArgumentCaptor.forClass(Asesoria.class);
+        verify(asesoriaRepository).save(captor.capture());
+        assertEquals("COASESOR", captor.getValue().getTipo());
+        assertEquals(docP, captor.getValue().getDocenteId());
+        // El co-asesor también recibe el rol: entra a la bandeja, pero el detalle le llega en
+        // modo consulta (AsesorProyectoServiceImpl marca soloLectura y bloquea la escritura).
+        verify(asesorRolService).otorgarRolAsesor(docP);
+    }
+
+    @Test
+    void responder_aceptarAsesoria_cuandoYaHayAsesor_lanzaBusiness() {
+        UUID docP = UUID.randomUUID();
+        UUID estP = UUID.randomUUID();
+        UUID tesisId = UUID.randomUUID();
+        stubDocenteAutenticado(docP);
+
+        SolicitudAsesoria s = solicitudPendiente(docP, estP);
+        s.setTipo(TipoAsesoria.ASESOR);
+        when(solicitudRepository.buscarPorId(s.getId())).thenReturn(Optional.of(s));
+        when(tesisAutorRepository.tesisActivaId(estP)).thenReturn(tesisId);
+        when(asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR"))
+                .thenReturn(Optional.of(asesoriaDe(tesisId, UUID.randomUUID(), "ASESOR")));
+
+        assertThrows(BusinessException.class, () -> service.responder(s.getId(),
+                new ResponderSolicitudRequest(DecisionSolicitud.ACEPTAR, null)));
+        verify(asesoriaRepository, never()).save(any());
     }
 
     @Test

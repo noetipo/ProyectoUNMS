@@ -22,4 +22,11 @@ public class AsesoresCandidatosResponse {
     private UUID lineaId;
     private String lineaNombre;
     private List<DocenteComboItem> docentes;
+
+    /**
+     * Designación vigente del tutorando. Define para qué puesto se sugiere: mientras no haya
+     * asesor, toda sugerencia es para ASESOR; una vez designado, solo cabe el co-asesor.
+     */
+    private String asesorActual;
+    private String coasesorActual;
 }

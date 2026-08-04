@@ -38,10 +38,17 @@ public class ProyectoEditorAssembler {
 
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-    private static final Set<EstadoItemRevision> PENDIENTES = Set.of(
-            EstadoItemRevision.OBSERVADO, EstadoItemRevision.EN_CORRECCION, EstadoItemRevision.CORREGIDO);
-
+    /** Vista completa (la que ve el estudiante: observaciones del asesor y del revisor). */
     public ProyectoEditorResponse armar(ProyectoTesis p, Tesis tesis, Estudiante est, String asesorNombre) {
+        return armar(p, tesis, est, asesorNombre, null);
+    }
+
+    /**
+     * @param vista {@code null} = estudiante (ve todo); {@code "ASESOR"} = el asesor solo ve sus
+     *              propias observaciones; {@code "REVISOR"} = el revisor solo ve las suyas.
+     *              Las correcciones del estudiante se atribuyen al observador vigente de cada ítem.
+     */
+    public ProyectoEditorResponse armar(ProyectoTesis p, Tesis tesis, Estudiante est, String asesorNombre, String vista) {
         // ── Campos (titulo/resumen viven en tesis) ──
         Map<String, String> campos = new LinkedHashMap<>();
         campos.put("titulo", tesis != null ? nz(tesis.getTitulo()) : "");
@@ -100,26 +107,58 @@ public class ProyectoEditorAssembler {
                         .estado(rv.getEstado() != null ? rv.getEstado().name() : null)
                         .comentario(rv.getComentario()).respuesta(rv.getRespuestaEstudiante())
                         .puntajeTotal(rv.getPuntajeTotal())
+                        .puntajeMaximo(rv.getPuntajeTotal() != null ? 100 : null)
+                        .aprobado(rv.getPuntajeTotal() != null
+                                ? rv.getPuntajeTotal() >= unmsm.edu.pe.tesis.application.util.RubricaDefinicion.APROBADO_MIN
+                                : null)
                         .build())
                 .toList();
 
-        // ── Revisiones + eventos ──
+        // ── Revisiones + eventos (un hilo por campo; se filtra según quién consulta) ──
+        // El estudiante ve las observaciones del asesor y del revisor; cada docente solo ve las suyas.
+        // Las correcciones del estudiante se atribuyen al observador vigente del ítem (el rol de la
+        // última OBSERVACIÓN previa), de modo que caen en el hilo del asesor o del revisor según corresponda.
         List<ProyectoRevision> revEnt = revisionRepository.listarPorProyecto(p.getId());
         List<UUID> revIds = revEnt.stream().map(ProyectoRevision::getId).toList();
-        Map<UUID, List<RevisionEventoItem>> eventosPorRev = new HashMap<>();
+        Map<UUID, List<ProyectoRevisionEvento>> eventosPorRev = new HashMap<>();
         for (ProyectoRevisionEvento ev : eventoRepository.listarPorRevisiones(revIds)) {
-            eventosPorRev.computeIfAbsent(ev.getRevisionId(), k -> new ArrayList<>()).add(
-                    RevisionEventoItem.builder().tipo(ev.getTipo()).autor(ev.getAutor()).rol(ev.getRol())
-                            .texto(ev.getTexto())
+            eventosPorRev.computeIfAbsent(ev.getRevisionId(), k -> new ArrayList<>()).add(ev);
+        }
+        List<RevisionItem> revisiones = new ArrayList<>();
+        for (ProyectoRevision r : revEnt) {
+            List<ProyectoRevisionEvento> evs = eventosPorRev.getOrDefault(r.getId(), List.of());
+            List<RevisionEventoItem> visibles = new ArrayList<>();
+            String observadorVigente = "ASESOR";                 // a quién pertenece la corrección del estudiante
+            EstadoItemRevision estadoVista = EstadoItemRevision.SIN_REVISION;
+            for (ProyectoRevisionEvento ev : evs) {
+                String dueno;
+                if ("REVISOR".equals(ev.getRol()) || "ASESOR".equals(ev.getRol())) {
+                    dueno = ev.getRol();
+                    if ("OBSERVACIÓN".equals(ev.getTipo())) observadorVigente = ev.getRol();
+                } else {
+                    dueno = observadorVigente;                   // ESTUDIANTE / sistema
+                }
+                if (vista == null || vista.equals(dueno)) {
+                    visibles.add(RevisionEventoItem.builder()
+                            .tipo(ev.getTipo()).autor(ev.getAutor()).rol(ev.getRol()).texto(ev.getTexto())
                             .fecha(ev.getFechaEvento() != null ? ev.getFechaEvento().format(FECHA) : null)
                             .build());
+                    EstadoItemRevision e = estadoDeEvento(ev.getTipo());
+                    if (e != null) estadoVista = e;
+                }
+            }
+            if (vista != null && visibles.isEmpty()) continue;   // esta vista no tiene nada en este campo
+            String estadoStr = vista == null
+                    ? (r.getEstado() != null ? r.getEstado().name() : null)
+                    : estadoVista.name();
+            revisiones.add(RevisionItem.builder().campo(r.getCampo()).estado(estadoStr).eventos(visibles).build());
         }
-        List<RevisionItem> revisiones = revEnt.stream()
-                .map(r -> RevisionItem.builder().campo(r.getCampo())
-                        .estado(r.getEstado() != null ? r.getEstado().name() : null)
-                        .eventos(eventosPorRev.getOrDefault(r.getId(), List.of())).build())
-                .toList();
-        boolean hayPendientes = revEnt.stream().anyMatch(r -> PENDIENTES.contains(r.getEstado()));
+        // La carta de opinión solo se habilita cuando TODO ítem revisable está CONFORME
+        // (no basta con que no haya observaciones vivas: los campos nunca revisados también cuentan).
+        Map<String, EstadoItemRevision> estadoPorCampo = new HashMap<>();
+        for (ProyectoRevision r : revEnt) estadoPorCampo.put(r.getCampo(), r.getEstado());
+        boolean todosItemsConformes = ProyectoDefinicion.itemsRevisables(p.getEnfoque()).stream()
+                .allMatch(k -> estadoPorCampo.get(k) == EstadoItemRevision.CONFORME);
 
         // ── Avance (igual que proyStats) ──
         int tot = 0, fil = 0;
@@ -195,7 +234,7 @@ public class ProyectoEditorAssembler {
                                 .porcentajePlan(a.getPorcentajePlan()).comentario(a.getComentario()).build())
                         .toList())
                 .puedeMarcarListo(pct >= 100)
-                .todosConformes(Boolean.TRUE.equals(p.getListoRevision()) && !hayPendientes)
+                .todosConformes(Boolean.TRUE.equals(p.getListoRevision()) && todosItemsConformes)
                 .build();
     }
 
@@ -216,6 +255,18 @@ public class ProyectoEditorAssembler {
 
     private int nzi(Integer i) {
         return i != null ? i : 0;
+    }
+
+    /** Estado de ítem que representa un evento del historial (para derivar el estado por vista). */
+    private static EstadoItemRevision estadoDeEvento(String tipo) {
+        if (tipo == null) return null;
+        return switch (tipo) {
+            case "OBSERVACIÓN" -> EstadoItemRevision.OBSERVADO;
+            case "EDICIÓN" -> EstadoItemRevision.EN_CORRECCION;
+            case "CORRECCIÓN" -> EstadoItemRevision.CORREGIDO;
+            case "CONFORMIDAD" -> EstadoItemRevision.CONFORME;
+            default -> null;
+        };
     }
 
     private String nombreDocente(java.util.UUID personaId) {

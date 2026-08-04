@@ -28,4 +28,10 @@ public class SolicitudBandejaItem {
     private LocalDateTime fechaSolicitud;
     private LocalDateTime fechaRespuesta;
     private String motivoRespuesta;
+
+    /** Contexto del tema, para que el asesor decida con información y no solo por el título. */
+    private String nivel;
+    private String temaTitulo;
+    private String temaResumen;
+    private String tutorNombre;
 }

@@ -192,6 +192,7 @@ storage:
     seeders:
       enabled: true
       force: false  # Cambiar a true para actualizar datos existentes
+
       dev-users: true  # SOLO DEV: crea usuarios de prueba con contraseña conocida
 
 # ========================================

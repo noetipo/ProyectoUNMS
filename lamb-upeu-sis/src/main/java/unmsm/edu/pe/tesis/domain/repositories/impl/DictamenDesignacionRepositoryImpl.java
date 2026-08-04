@@ -82,8 +82,15 @@ public class DictamenDesignacionRepositoryImpl
     private String where(String estado, UUID facultadId, UUID programaId, String buscar, Map<String, Object> params) {
         StringBuilder w = new StringBuilder(" WHERE d.active = true ");
         if (estado != null && !estado.isBlank()) {
-            w.append(" AND d.estado = :estado ");
-            params.put("estado", estado.trim());
+            // "PENDIENTES" no es un estado de la entidad: es la cola de trabajo de la Secretaría.
+            // Un dictamen elaborado sigue pendiente hasta que se sube el firmado del Director,
+            // así que no debe desaparecer de la bandeja al generarse.
+            if ("PENDIENTES".equalsIgnoreCase(estado.trim())) {
+                w.append(" AND d.estado IN ('POR_ELABORAR', 'ELABORADO') ");
+            } else {
+                w.append(" AND d.estado = :estado ");
+                params.put("estado", estado.trim());
+            }
         }
         if (facultadId != null) {
             w.append(" AND prog.facultad_id = :facultadId ");

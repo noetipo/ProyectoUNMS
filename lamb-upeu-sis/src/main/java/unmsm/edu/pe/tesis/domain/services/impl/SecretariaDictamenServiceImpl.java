@@ -96,6 +96,7 @@ public class SecretariaDictamenServiceImpl implements SecretariaDictamenService 
                 .expediente(dic != null ? dic.getExpediente() : null)
                 .fechaSolicitud(dic != null ? dic.getFechaSolicitud() : null)
                 .estado(dic != null && dic.getEstado() != null ? dic.getEstado().name() : null)
+                .motivoObservacion(dic != null ? dic.getMotivoObservacion() : null)
                 .solicitudFirmadaDisponible(documentoTesisRepository.existePorTesisYTipo(tesisId, T_SOL))
                 .cartaFirmadaDisponible(documentoTesisRepository.existePorTesisYTipo(tesisId, T_CARTA))
                 .dictamenFirmadoSubido(documentoTesisRepository.existePorTesisYTipo(tesisId, T_DICT))
@@ -138,8 +139,16 @@ public class SecretariaDictamenServiceImpl implements SecretariaDictamenService 
             dic.setAnio(anio);
             dic.setCorrelativo(corr);
             dic.setNumero(formatoNumero(corr, anio, e));
+            dic.setExpediente(formatoExpediente(corr, anio));
         }
-        dic.setExpediente(req.getExpediente().trim());
+        // Numeración manual: la UPG lleva sus propios correlativos, así que lo que escriba la
+        // Secretaría manda. El correlativo calculado arriba queda solo como propuesta inicial.
+        if (req.getNumero() != null && !req.getNumero().isBlank()) {
+            dic.setNumero(req.getNumero().trim());
+        }
+        if (req.getExpediente() != null && !req.getExpediente().isBlank()) {
+            dic.setExpediente(req.getExpediente().trim());
+        }
         dic.setFechaSolicitud(req.getFechaSolicitud());
         dic.setEstado(EstadoDictamen.ELABORADO);
         dic.setMotivoObservacion(null);
@@ -214,6 +223,11 @@ public class SecretariaDictamenServiceImpl implements SecretariaDictamenService 
     }
 
     // ── helpers ──
+    /** N° de expediente digital: correlativo automático por año, ej. EXP-2026-000123. */
+    private String formatoExpediente(int correlativo, int anio) {
+        return String.format("EXP-%04d-%06d", anio, correlativo);
+    }
+
     private String formatoNumero(int correlativo, int anio, Estudiante e) {
         String facCod = "UNMSM";
         if (e != null && e.getPrograma() != null && e.getPrograma().getFacultad() != null

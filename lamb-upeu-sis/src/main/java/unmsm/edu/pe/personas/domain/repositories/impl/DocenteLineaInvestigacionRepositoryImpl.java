@@ -41,7 +41,8 @@ public class DocenteLineaInvestigacionRepositoryImpl
         return getEntityManager().createQuery(
                         "select d.personaId, d.persona.apellidoPaterno, d.persona.apellidoMaterno, "
                                 + "d.persona.nombres, d.codigoSistema, "
-                                + "(select g.grado from PersonaGradoAcademico g where g.persona = d.persona and g.principal = true and g.active = true) "
+                                + "(select g.grado from PersonaGradoAcademico g where g.persona = d.persona and g.principal = true and g.active = true), "
+                                + "d.categoria, d.condicion, d.emailInstitucional "
                                 + "from DocenteLineaInvestigacion dli join dli.docente d "
                                 + "where dli.lineaInvestigacion.id = :lineaId and dli.active = true "
                                 + "and d.persona.active = true "

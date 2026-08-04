@@ -167,21 +167,18 @@ class MiAsesoriaIntegrationTest {
                 .when().post("/api/solicitudes-asesoria")
                 .then().statusCode(201).extract().path("data.id");
 
-        // Ahora hay solicitud PENDIENTE; la Solicitud PDF está disponible, la Carta no.
+        // Solicitud PENDIENTE: los firmados son un paquete post-aceptación, así que
+        // ni la Solicitud ni la Carta están disponibles todavía.
         given().header("Authorization", est).when().get("/api/mi-asesoria")
                 .then().statusCode(200)
                 .body("data.solicitudEstado", is("PENDIENTE"))
-                .body("data.solicitudPdfDisponible", is(true))
+                .body("data.solicitudPdfDisponible", is(false))
                 .body("data.cartaPdfDisponible", is(false));
 
-        // Descarga la Solicitud PDF (magic bytes %PDF).
-        byte[] solicitudPdf = given().header("Authorization", est)
+        // Con la solicitud aún PENDIENTE, descargar la Solicitud o la Carta falla (409).
+        given().header("Authorization", est)
                 .when().get("/api/mi-asesoria/documentos/SOLICITUD_ASESORIA")
-                .then().statusCode(200).contentType("application/pdf").extract().asByteArray();
-        assert solicitudPdf.length > 4 && solicitudPdf[0] == '%' && solicitudPdf[1] == 'P'
-                && solicitudPdf[2] == 'D' && solicitudPdf[3] == 'F';
-
-        // La Carta aún no está disponible (409).
+                .then().statusCode(409);
         given().header("Authorization", est)
                 .when().get("/api/mi-asesoria/documentos/CARTA_ACEPTACION")
                 .then().statusCode(409);
@@ -191,11 +188,20 @@ class MiAsesoriaIntegrationTest {
                 .when().post("/api/solicitudes-asesoria/" + solicitudId + "/responder")
                 .then().statusCode(200);
 
+        // Tras aceptar, AMBOS documentos quedan disponibles para firma.
         given().header("Authorization", est).when().get("/api/mi-asesoria")
                 .then().statusCode(200)
                 .body("data.solicitudEstado", is("ACEPTADA"))
                 .body("data.estadoDerivado", is("TEMA_REGISTRADO"))
+                .body("data.solicitudPdfDisponible", is(true))
                 .body("data.cartaPdfDisponible", is(true));
+
+        // Descarga la Solicitud PDF (magic bytes %PDF).
+        byte[] solicitudPdf = given().header("Authorization", est)
+                .when().get("/api/mi-asesoria/documentos/SOLICITUD_ASESORIA")
+                .then().statusCode(200).contentType("application/pdf").extract().asByteArray();
+        assert solicitudPdf.length > 4 && solicitudPdf[0] == '%' && solicitudPdf[1] == 'P'
+                && solicitudPdf[2] == 'D' && solicitudPdf[3] == 'F';
 
         // Descarga la Carta de aceptación PDF.
         byte[] cartaPdf = given().header("Authorization", est)

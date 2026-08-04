@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.Query;
 import unmsm.edu.pe.tesis.domain.entities.SolicitudAsesoria;
 import unmsm.edu.pe.tesis.domain.enums.EstadoSolicitud;
+import unmsm.edu.pe.tesis.domain.enums.TipoAsesoria;
 import unmsm.edu.pe.tesis.domain.repositories.SolicitudAsesoriaRepository;
 
 import java.util.List;
@@ -15,10 +16,23 @@ import java.util.UUID;
 public class SolicitudAsesoriaRepositoryImpl
         implements SolicitudAsesoriaRepository, PanacheRepositoryBase<SolicitudAsesoria, UUID> {
 
+    /**
+     * Para decidir, el asesor necesita el TEMA del doctorando, no solo el título tentativo de la
+     * solicitud: se traen el tema registrado (título y resumen), el nivel del programa y el tutor
+     * que lo sugirió. Las subconsultas usan la tesis activa del estudiante.
+     */
     private static final String SELECT_BANDEJA =
             "select s.id, e.personaId, e.persona.nombres, e.persona.apellidoPaterno, e.persona.apellidoMaterno, "
                     + "e.codigoSistema, prog.nombre, li.nombre, s.tituloTentativo, s.tipo, s.estado, "
-                    + "s.fechaSolicitud, s.fechaRespuesta, s.motivoRespuesta, s.mensaje "
+                    + "s.fechaSolicitud, s.fechaRespuesta, s.motivoRespuesta, s.mensaje, "
+                    + "prog.nivel, "
+                    + "(select t.titulo from Tesis t, TesisAutor ta where ta.tesisId = t.id "
+                    + "   and ta.estudianteId = e.personaId and ta.esActiva = true and ta.active = true and t.active = true), "
+                    + "(select t.resumen from Tesis t, TesisAutor ta where ta.tesisId = t.id "
+                    + "   and ta.estudianteId = e.personaId and ta.esActiva = true and ta.active = true and t.active = true), "
+                    + "(select concat(tu.docente.persona.apellidoPaterno, ', ', tu.docente.persona.nombres) "
+                    + "   from Tutoria tu where tu.estudiante.personaId = e.personaId "
+                    + "   and tu.actual = true and tu.active = true) "
                     + "from SolicitudAsesoria s join s.estudiante e "
                     + "left join e.programa prog left join s.lineaInvestigacion li ";
 
@@ -52,6 +66,15 @@ public class SolicitudAsesoriaRepositoryImpl
     @Override
     public Optional<SolicitudAsesoria> ultimaDeEstudiante(UUID estudianteId) {
         return find("estudiante.personaId = ?1 and active = true order by fechaSolicitud desc", estudianteId)
+                .firstResultOptional();
+    }
+
+    @Override
+    public Optional<SolicitudAsesoria> ultimaDeEstudiantePorTipo(UUID estudianteId, TipoAsesoria tipo) {
+        // Las solicitudes antiguas (previas al co-asesor) no tienen tipo: cuentan como ASESOR.
+        String filtroTipo = tipo == TipoAsesoria.ASESOR ? "(s.tipo = ?2 or s.tipo is null)" : "s.tipo = ?2";
+        return find("from SolicitudAsesoria s where s.estudiante.personaId = ?1 and " + filtroTipo
+                + " and s.active = true order by s.fechaSolicitud desc", estudianteId, tipo)
                 .firstResultOptional();
     }
 

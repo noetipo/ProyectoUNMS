@@ -53,6 +53,10 @@ public class SolicitudAsesoriaMapper {
                 .fechaRespuesta(asDateTime(r[12]))
                 .motivoRespuesta(asStr(r[13]))
                 .mensaje(asStr(r[14]))
+                .nivel(r.length > 15 ? asStr(r[15]) : null)
+                .temaTitulo(r.length > 16 ? asStr(r[16]) : null)
+                .temaResumen(r.length > 17 ? asStr(r[17]) : null)
+                .tutorNombre(r.length > 18 ? asStr(r[18]) : null)
                 .build();
     }
 

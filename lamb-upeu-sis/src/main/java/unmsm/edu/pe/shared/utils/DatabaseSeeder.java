@@ -100,6 +100,9 @@ public class DatabaseSeeder {
     @Inject unmsm.edu.pe.configuracion.domain.repositories.LemaAnualRepository lemaAnualRepository;
     @Inject unmsm.edu.pe.configuracion.domain.repositories.ParametroSistemaRepository parametroSistemaRepository;
     @Inject PasswordEncoder passwordEncoder;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.PlantillaRubricaRepository plantillaRubricaRepository;
+    @Inject unmsm.edu.pe.personas.domain.repositories.PersonaCentroLaboralRepository personaCentroLaboralRepository;
+    @Inject unmsm.edu.pe.personas.domain.repositories.PersonaCargoRepository personaCargoRepository;
 
     /** Solo en desarrollo (%dev): crea usuarios de prueba con contraseña conocida. */
     @ConfigProperty(name = "app.seeders.dev-users", defaultValue = "false")
@@ -131,6 +134,7 @@ public class DatabaseSeeder {
             seedLineasInvestigacion();
             seedParametrosSistema();
             seedLemasAnuales();
+            seedPlantillasRubrica();
             seedUsuariosPrueba(roles);
 
             LOG.info("🌱 ✅ SEEDER COMPLETADO");
@@ -171,7 +175,10 @@ public class DatabaseSeeder {
                 new ParentModuleData("03", "Gestión Posgrado", "Personas y programas de posgrado", "collapsable",
                         "heroicons_outline:academic-cap", "/example", 3),
                 new ParentModuleData("05", "Proceso de Tesis", "Solicitudes de asesoría y tesis", "collapsable",
-                        "heroicons_outline:document-text", "/example", 5)
+                        "heroicons_outline:document-text", "/example", 5),
+                // Grupo exclusivo del doctorando: su perfil y su tesis, juntos y sin ruido.
+                new ParentModuleData("06", "Mi Tesis", "Tu perfil y el avance de tu tesis", "collapsable",
+                        "heroicons_outline:academic-cap", "/example", 2)
         };
         for (ParentModuleData d : data) {
             Optional<ParentModule> existing = parentModuleRepository.findByCode(d.code);
@@ -222,7 +229,9 @@ public class DatabaseSeeder {
                         "/admin/parametros-sistema", 11, "01"),
                 new ModuleData("29", "Solicitudes de Asesoría", "basic", "heroicons_outline:inbox",
                         "/admin/solicitudes-asesoria", 3, "05"),
-                new ModuleData("30", "Asignar Tutor", "basic", "heroicons_outline:user-plus",
+                // La designación individual se hace desde "Registro de Tema" (paso siguiente al
+                // tema); esta pantalla queda para cargas masivas.
+                new ModuleData("30", "Asignar Tutor (en bloque)", "basic", "heroicons_outline:user-plus",
                         "/admin/asignar-tutor", 5, "03"),
                 new ModuleData("31", "Reporte de Tutores", "basic", "heroicons_outline:document-chart-bar",
                         "/admin/reporte-tutores", 6, "03"),
@@ -239,7 +248,7 @@ public class DatabaseSeeder {
                         "/admin/expediente", 8, "05"),
                 new ModuleData("41", "Proyecto en línea (editor)", "basic", "heroicons_outline:pencil-square",
                         "/admin/mi-proyecto", 9, "05"),
-                new ModuleData("42", "Revisión de proyectos", "basic", "heroicons_outline:clipboard-document-check",
+                new ModuleData("42", "Revisión de proyectos (asesor)", "basic", "heroicons_outline:clipboard-document-check",
                         "/admin/revision-proyecto", 10, "05"),
                 new ModuleData("43", "Supervisión de proyectos", "basic", "heroicons_outline:eye",
                         "/admin/supervision-proyecto", 11, "05"),
@@ -248,7 +257,7 @@ public class DatabaseSeeder {
                 // ── Etapa 5 · Defensa del proyecto ──
                 new ModuleData("45", "Designación de revisores", "basic", "heroicons_outline:user-group",
                         "/admin/coordinador-proyecto", 13, "05"),
-                new ModuleData("46", "Revisión de proyectos (jurado)", "basic", "heroicons_outline:clipboard-document-list",
+                new ModuleData("46", "Revisión de proyectos (revisor)", "basic", "heroicons_outline:clipboard-document-list",
                         "/admin/revisor-proyecto", 14, "05"),
                 // ── Etapa 6 · Ejecución de la tesis ──
                 new ModuleData("47", "Ejecución de la tesis", "basic", "heroicons_outline:rocket-launch",
@@ -256,6 +265,17 @@ public class DatabaseSeeder {
                 // ── Etapa 7 · Jurado Informante ──
                 new ModuleData("48", "Jurado Informante (informe)", "basic", "heroicons_outline:document-check",
                         "/admin/jurado-informe", 16, "05"),
+                // ── Seguimiento transversal (secretaría/coordinación) ──
+                new ModuleData("49", "Seguimiento de alumnos", "basic", "heroicons_outline:chart-bar",
+                        "/admin/seguimiento-alumnos", 2, "05"),
+                // Documento institucional, no del expediente: se publica una vez y se versiona por año.
+                new ModuleData("52", "Rúbricas oficiales", "basic", "heroicons_outline:clipboard-document-list",
+                        "/admin/rubricas-oficiales", 3, "05"),
+                // ── Menú del doctorando: SOLO estas dos entradas (grupo "Mi Tesis") ──
+                new ModuleData("50", "Mi perfil", "basic", "heroicons_outline:user-circle",
+                        "/admin/mi-perfil", 1, "06"),
+                new ModuleData("51", "Mi tesis", "basic", "heroicons_outline:academic-cap",
+                        "/admin/mi-tesis", 2, "06"),
         };
         for (ModuleData d : data) {
             Optional<Module> existing = moduleRepository.findByCode(d.code);
@@ -317,15 +337,21 @@ public class DatabaseSeeder {
     private void seedRoleModules(List<Role> roles, List<Module> modules) {
         // roleCode -> códigos de módulo visibles para ese rol
         Map<String, List<String>> matriz = new LinkedHashMap<>();
-        matriz.put("ADMIN", List.of("01", "03", "04", "05", "20", "21", "22", "24", "25", "26", "35", "36", "37", "30", "31", "33", "38", "44", "45", "46", "47", "48"));
-        matriz.put("SECRETARIA", List.of("20", "21", "22", "24", "25", "26", "35", "36", "37", "30", "31", "33", "38", "44"));
-        matriz.put("COORDINADOR", List.of("21", "22", "35", "36", "37", "30", "31", "33", "45"));
-        matriz.put("ESTUDIANTE", List.of("23", "34", "40", "41")); // + expediente + proyecto en línea
-        matriz.put("DOCENTE", List.of("23", "29", "46", "48")); // + revisión de proyectos (jurado)
+        // Quien tiene "Registro de Tema" (33) NO lleva "Asignar Tutor" (30) en el menú: designa
+        // desde ahí (individual) o con el botón "Asignar en bloque" de esa misma pantalla.
+        matriz.put("ADMIN", List.of("01", "03", "04", "05", "20", "21", "22", "24", "25", "26", "35", "36", "37", "31", "33", "38", "44", "45", "46", "47", "48", "49", "52"));
+        matriz.put("SECRETARIA", List.of("20", "21", "22", "24", "25", "26", "35", "36", "37", "31", "33", "38", "44", "49", "52")); // + seguimiento y rúbricas oficiales
+        matriz.put("COORDINADOR", List.of("21", "22", "35", "36", "37", "31", "33", "45", "49", "52"));
+        // El doctorando ve SOLO su perfil y "Mi tesis" (pestañas: avance · proyecto · asesoría).
+        matriz.put("ESTUDIANTE", List.of("50", "51"));
+        matriz.put("DOCENTE", List.of("23", "29", "46", "48")); // + revisión como revisor + jurado informante
         matriz.put("ASESOR", List.of("23", "42", "47"));           // revisión de proyectos + ejecución de la tesis
-        matriz.put("JURADO", List.of("23"));
+        matriz.put("REVISOR", List.of("23", "46", "48"));          // revisión como revisor + jurado informante
+        matriz.put("JURADO", List.of("23", "48"));                 // + jurado informante (informe final)
         // Gestión adicional (edición) y monitoreo (solo lectura) ven el reporte de tutores.
-        matriz.put("COORD_PROG", List.of("30", "31", "33")); // registro de tema
+        matriz.put("COORD_PROG", List.of("31", "33")); // registro de tema (con la designación dentro)
+        // PERS_ADMIN sí conserva el 30: no tiene Registro de Tema, y sin él se quedaría sin
+        // ninguna forma de asignar tutores.
         matriz.put("PERS_ADMIN", List.of("30", "31"));
         matriz.put("DECANO", List.of("31"));
         matriz.put("VICEDECANO", List.of("31"));
@@ -354,6 +380,45 @@ public class DatabaseSeeder {
             }
         }
         LOG.info("   ✅ Role-Module: " + created + " asignaciones");
+        limpiarRoleModulesObsoletos(roles, modules);
+    }
+
+    /**
+     * Quita asignaciones que quedaron obsoletas al reorganizar un menú. Es la ÚNICA parte del
+     * seeder que borra: sin esto, las bases ya sembradas conservarían los ítems viejos (el
+     * seeder solo agrega) y el menú reorganizado no se vería. Sale de aquí cuando ya no queden
+     * bases con el menú antiguo.
+     */
+    private void limpiarRoleModulesObsoletos(List<Role> roles, List<Module> modules) {
+        // El doctorando pasó de 4 ítems sueltos (perfil, asesoría, expediente, editor) a
+        // "Mi Tesis" (50 perfil + 51 tesis con pestañas). Y "Asignar Tutor" (30) salió del menú
+        // de quienes tienen "Registro de Tema", porque la designación vive dentro de esa pantalla.
+        Map<String, List<String>> obsoletos = Map.of(
+                "ESTUDIANTE", List.of("23", "34", "40", "41"),
+                "ADMIN", List.of("30"),
+                "SECRETARIA", List.of("30"),
+                "COORDINADOR", List.of("30"),
+                "COORD_PROG", List.of("30"));
+        int removed = 0;
+        for (Map.Entry<String, List<String>> entry : obsoletos.entrySet()) {
+            Role role = roles.stream().filter(r -> entry.getKey().equals(r.getCode())).findFirst().orElse(null);
+            if (role == null) {
+                continue;
+            }
+            for (String modCode : entry.getValue()) {
+                Module module = modules.stream().filter(m -> modCode.equals(m.getCode())).findFirst().orElse(null);
+                if (module == null) {
+                    continue;
+                }
+                for (RoleModule rm : roleModuleRepository.findByModuleInAndRole(List.of(module), role)) {
+                    roleModuleRepository.remove(rm);
+                    removed++;
+                }
+            }
+        }
+        if (removed > 0) {
+            LOG.info("   🧹 Role-Module: " + removed + " asignaciones obsoletas retiradas");
+        }
     }
 
     // ── FASE 6: User-Role (admin → ADMIN) ──
@@ -667,31 +732,35 @@ public class DatabaseSeeder {
             asignarRolSiFalta(u, rolEstudiante);
         }
 
-        // 10 docentes (rol DOCENTE; 1-3 también PROF_TUTOR, 4-6 también ASESOR). Cada uno con 2 líneas.
+        // 10 docentes (rol DOCENTE; 1-3 también PROF_TUTOR, 4-6 también ASESOR). Cada uno con 3 líneas.
         int doc = 0;
         for (int i = 0; i < DOCENTES.length; i++) {
             String[] p = DOCENTES[i];
             String username = username(p[0], p[2]);
             Optional<User> ex = userRepository.findByUsername(username);
             User u;
+            Docente docente = null;
             if (ex.isPresent()) {
                 u = ex.get();
                 u.setPassword(passwordEncoder.encode(PRUEBA_PASSWORD));
+                // Docente ya sembrado: se recupera para completarle las líneas que falten.
+                docente = personaRepository.findByUserId(u.getId())
+                        .flatMap(per -> docenteRepository.findByPersonaId(per.getId())).orElse(null);
             } else {
                 String d = dni(seq++);
                 u = crearUsuarioDemo(username, p[2], p[0], p[1]);
                 Persona persona = crearPersonaDemo(d, p[0], p[1], p[2], Sexo.HOMBRE, u);
-                Docente docente = docenteRepository.save(Docente.builder()
+                docente = docenteRepository.save(Docente.builder()
                         .persona(persona).codigoSistema("DOC-" + d).emailInstitucional(username + "@unmsm.edu.pe")
                         .categoria(CategoriaDocente.PRINCIPAL)
                         .condicion(CondicionDocente.NOMBRADO).cupoMaximoTutoria(20).build());
-                if (lineas.size() >= 2) {
-                    asignarLineasDocente(docente, lineas.get(i % lineas.size()), true,
-                            lineas.get((i + 3) % lineas.size()));
-                }
                 // Grados académicos (lista a nivel de persona): Bachiller + Magíster + Doctor(principal).
                 asignarGradosDemo(persona, i);
                 doc++;
+            }
+            if (docente != null) {
+                asignarLineasDocente(docente, i, lineas);
+                asignarTrayectoriaDemo(docente, i);
             }
             asignarRolSiFalta(u, rolDocente);
             if (i < 3) {
@@ -764,6 +833,55 @@ public class DatabaseSeeder {
     };
 
     /** Grados demo del docente: Bachiller + Magíster (+ Doctor para los primeros); un solo principal. */
+    /** Cargos vigentes que se reparten entre los docentes de prueba (los 4 primeros). */
+    private static final String[] CARGOS_DOCENTE_DEMO = {
+            "Director de la Unidad de Posgrado", "Coordinador de Programa de Doctorado",
+            "Jefe de Departamento", "Profesor Investigador"};
+
+    /**
+     * Trayectoria del docente de prueba: centro laboral vigente (con antigüedad, de donde sale la
+     * experiencia), un cargo para algunos y ORCID. Es lo que la UPG quiere ver antes de designar
+     * a alguien como asesor, y sin datos la ficha se veía vacía.
+     *
+     * <p>Idempotente: si el docente ya tiene centro laboral, no toca nada.</p>
+     */
+    private void asignarTrayectoriaDemo(Docente docente, int i) {
+        Persona persona = docente.getPersona();
+        if (persona == null) {
+            return;
+        }
+        if (personaCentroLaboralRepository.findByPersonaId(persona.getId()).isEmpty()) {
+            List<unmsm.edu.pe.personas.domain.entities.CentroLaboral> centros =
+                    centroLaboralRepository.listar(null, 0, 50);
+            if (!centros.isEmpty()) {
+                // Antigüedad escalonada: entre 6 y 24 años, para que "experiencia" varíe entre docentes.
+                int anios = 6 + (i * 2) % 19;
+                personaCentroLaboralRepository.saveAll(List.of(
+                        unmsm.edu.pe.personas.domain.entities.PersonaCentroLaboral.builder()
+                                .persona(persona)
+                                .centroLaboral(centros.get(i % centros.size()))
+                                .fechaInicio(java.time.LocalDate.now().minusYears(anios))
+                                .actual(true)
+                                .build()));
+            }
+        }
+        if (i < CARGOS_DOCENTE_DEMO.length && personaCargoRepository.findByPersonaId(persona.getId()).isEmpty()) {
+            List<unmsm.edu.pe.personas.domain.entities.Cargo> cargos = cargoRepository.listar(null, 0, 50);
+            cargos.stream()
+                    .filter(c -> CARGOS_DOCENTE_DEMO[i].equalsIgnoreCase(c.getNombre()))
+                    .findFirst()
+                    .ifPresent(cargo -> personaCargoRepository.saveAll(List.of(
+                            unmsm.edu.pe.personas.domain.entities.PersonaCargo.builder()
+                                    .persona(persona).cargo(cargo)
+                                    .fechaInicio(java.time.LocalDate.now().minusYears(2))
+                                    .actual(true).build())));
+        }
+        if (persona.getOrcid() == null || persona.getOrcid().isBlank()) {
+            persona.setOrcid(String.format("0000-000%d-%04d-%04d", (i % 3) + 1, 1000 + i * 7, 2000 + i * 13));
+            personaRepository.save(persona);
+        }
+    }
+
     private void asignarGradosDemo(Persona persona, int i) {
         String uni1 = UNIVERSIDADES[i % UNIVERSIDADES.length];
         String uni2 = UNIVERSIDADES[(i + 2) % UNIVERSIDADES.length];
@@ -782,14 +900,100 @@ public class DatabaseSeeder {
                 .persona(persona).grado(g).anio(anio).universidad(universidad).principal(principal).build();
     }
 
-    private void asignarLineasDocente(Docente docente, LineaInvestigacion linea1, boolean linea1Principal,
-                                      LineaInvestigacion linea2) {
-        docenteLineaInvestigacionRepository.saveAll(List.of(
-                DocenteLineaInvestigacion.builder()
-                        .docente(docente).lineaInvestigacion(linea1).esPrincipal(linea1Principal).build(),
-                DocenteLineaInvestigacion.builder()
-                        .docente(docente).lineaInvestigacion(linea2).esPrincipal(!linea1Principal).build()
-        ));
+    // ── Rúbricas oficiales de los revisores ──────────────────────────────────
+    private static final String RUBRICA_CT =
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+    /**
+     * Deja publicadas las dos rúbricas oficiales de la UPG. Vienen empaquetadas en
+     * {@code resources/plantillas} para que cualquier despliegue las tenga sin depender de una
+     * carpeta del equipo de nadie; la Secretaría publica versiones nuevas desde
+     * <i>Configuración › Rúbricas oficiales</i> cuando la UPG cambie el documento.
+     *
+     * <p>Solo siembra si el enfoque aún no tiene versión vigente: nunca pisa lo que ya publicaron.</p>
+     */
+    private void seedPlantillasRubrica() {
+        int creadas = 0;
+        creadas += seedPlantillaRubrica("CUANTITATIVO", "plantillas/rubrica-cuantitativa.docx",
+                "02 RÚBRICA PROYECTO DE TESIS CUANTIT Y MIXTO.docx");
+        creadas += seedPlantillaRubrica("CUALITATIVO", "plantillas/rubrica-cualitativa.docx",
+                "01 RÚBRICA PROYECTO DE TESIS CUALITATIVO.docx");
+        LOG.info("   ✅ Rúbricas oficiales: " + creadas + " publicada(s)");
+    }
+
+    private int seedPlantillaRubrica(String enfoque, String recurso, String nombreOficial) {
+        var vigente = plantillaRubricaRepository.vigente(enfoque).orElse(null);
+        boolean sinContenido = vigente != null
+                && (vigente.getContenido() == null || vigente.getContenido().length == 0);
+        if (vigente != null && !sinContenido) {
+            return 0; // ya publicada y con su Word dentro de la base
+        }
+        try (java.io.InputStream in = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream(recurso)) {
+            if (in == null) {
+                LOG.warn("   ⚠️  No se encontró la rúbrica " + recurso + " en el classpath");
+                return 0;
+            }
+            byte[] contenido = in.readAllBytes();
+            if (sinContenido) {
+                // Fila creada cuando el Word iba al almacenamiento de archivos: se le mete el binario.
+                vigente.setContenido(contenido);
+                vigente.setTamanioBytes((long) contenido.length);
+                plantillaRubricaRepository.save(vigente);
+                return 1;
+            }
+            plantillaRubricaRepository.save(unmsm.edu.pe.tesis.domain.entities.PlantillaRubrica.builder()
+                    .enfoque(enfoque)
+                    .version(String.valueOf(java.time.LocalDate.now().getYear()))
+                    .vigente(true)
+                    .nombreOriginal(nombreOficial)
+                    .contenido(contenido)
+                    .contentType(RUBRICA_CT)
+                    .tamanioBytes((long) contenido.length)
+                    .fechaCarga(java.time.LocalDateTime.now())
+                    .build());
+            return 1;
+        } catch (java.io.IOException e) {
+            LOG.warn("   ⚠️  No se pudo publicar la rúbrica " + recurso + ": " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Cuántas líneas de investigación lleva cada docente de prueba. Con 10 docentes y 10 líneas,
+     * 4 por docente ⇒ <b>4 docentes por línea</b>: al designar revisores se excluye al asesor y
+     * aún quedan 3 candidatos, así que siempre se pueden elegir los 2 revisores y sobra margen.
+     */
+    private static final int LINEAS_POR_DOCENTE = 4;
+
+    /**
+     * Deja al docente con {@value #LINEAS_POR_DOCENTE} líneas de investigación, repartidas para
+     * que cada línea tenga varios docentes. Con solo dos líneas por docente, las pantallas que
+     * filtran por línea —candidatos a revisor, asesores sugeribles— se quedaban sin opciones.
+     *
+     * <p>Es idempotente y <b>completa a los docentes ya sembrados</b>: solo agrega las que
+     * falten, así que basta reiniciar para que las bases existentes queden al día.</p>
+     */
+    private void asignarLineasDocente(Docente docente, int indice, List<LineaInvestigacion> lineas) {
+        if (lineas.isEmpty()) {
+            return;
+        }
+        boolean yaTienePrincipal = docenteLineaInvestigacionRepository.findByDocenteId(docente.getPersonaId())
+                .stream().anyMatch(dl -> Boolean.TRUE.equals(dl.getEsPrincipal()));
+        List<DocenteLineaInvestigacion> nuevas = new ArrayList<>();
+        for (int k = 0; k < Math.min(LINEAS_POR_DOCENTE, lineas.size()); k++) {
+            // Salto de 3 en 3: reparte las líneas entre docentes en vez de repetir siempre las mismas.
+            LineaInvestigacion linea = lineas.get((indice + k * 3) % lineas.size());
+            if (docenteLineaInvestigacionRepository.existsByDocenteAndLinea(docente.getPersonaId(), linea.getId())) {
+                continue;
+            }
+            boolean principal = !yaTienePrincipal && nuevas.isEmpty();
+            nuevas.add(DocenteLineaInvestigacion.builder()
+                    .docente(docente).lineaInvestigacion(linea).esPrincipal(principal).build());
+        }
+        if (!nuevas.isEmpty()) {
+            docenteLineaInvestigacionRepository.saveAll(nuevas);
+        }
     }
 
 

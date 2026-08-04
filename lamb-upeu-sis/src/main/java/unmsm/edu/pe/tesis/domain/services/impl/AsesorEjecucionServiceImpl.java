@@ -42,6 +42,7 @@ public class AsesorEjecucionServiceImpl implements AsesorEjecucionService {
     @Inject ProyectoAvanceRepository avanceRepository;
     @Inject DocumentoTesisRepository documentoTesisRepository;
     @Inject ProyectoEditorAssembler assembler;
+    @Inject AsesorDesignadoService asesorDesignado;
 
     @Override
     @Transactional
@@ -160,7 +161,9 @@ public class AsesorEjecucionServiceImpl implements AsesorEjecucionService {
     private ProyectoTesis proyecto(UUID tesisId, Docente asesor) {
         ProyectoTesis p = proyectoRepository.buscarPorTesisId(tesisId)
                 .orElseThrow(() -> new NotFoundException("Proyecto no encontrado"));
-        if (p.getAsesorId() == null || !p.getAsesorId().equals(asesor.getPersonaId())) {
+        // La designación vive en `asesorias`; asesor_id es una copia que puede estar vacía.
+        UUID asesorVigente = asesorDesignado.sincronizar(p);
+        if (asesorVigente == null || !asesorVigente.equals(asesor.getPersonaId())) {
             throw new BusinessException("No eres el asesor de esta tesis");
         }
         return p;

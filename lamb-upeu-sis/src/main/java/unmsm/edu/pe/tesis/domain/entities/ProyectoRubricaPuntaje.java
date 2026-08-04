@@ -37,7 +37,15 @@ public class ProyectoRubricaPuntaje extends AuditableEntity {
     @Column(nullable = false, length = 40)
     private String criterio;
 
-    /** Puntaje 1..4. */
+    /** Nivel elegido: CUMPLE | PARCIAL | NO_CUMPLE. */
+    @Column(length = 20)
+    private String nivel;
+
+    /** Puntaje resultante del nivel para ese criterio. */
     @Column(nullable = false)
     private Integer puntaje;
+
+    /** Observación / sugerencia de subsanación del revisor para este criterio (opcional). */
+    @Column(length = 1000)
+    private String observacion;
 }

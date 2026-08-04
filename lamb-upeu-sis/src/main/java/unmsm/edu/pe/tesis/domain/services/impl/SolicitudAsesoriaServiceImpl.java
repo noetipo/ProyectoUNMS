@@ -50,8 +50,12 @@ public class SolicitudAsesoriaServiceImpl implements SolicitudAsesoriaService {
     @Inject LineaInvestigacionRepository lineaInvestigacionRepository;
     @Inject DocenteLineaInvestigacionRepository docenteLineaRepository;
     @Inject SolicitudAsesoriaRepository solicitudRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.SugerenciaAsesorRepository sugerenciaRepository;
     @Inject TesisAutorRepository tesisAutorRepository;
     @Inject AsesoriaRepository asesoriaRepository;
+    @Inject AsesorRolService asesorRolService;
+    @Inject AsesorDesignadoService asesorDesignado;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.ProyectoTesisRepository proyectoRepository;
     @Inject SolicitudAsesoriaMapper mapper;
     @Inject unmsm.edu.pe.tesis.domain.services.ResolverDatosPlantillaService resolverPlantilla;
     @Inject com.fasterxml.jackson.databind.ObjectMapper objectMapper;
@@ -73,9 +77,19 @@ public class SolicitudAsesoriaServiceImpl implements SolicitudAsesoriaService {
             throw new BusinessException("El docente no tiene registrada esa línea de investigación");
         }
 
+        // El asesor debe haber sido sugerido por el tutor del estudiante (flujo oficial:
+        // tutor sugiere → estudiante solicita). Sin tutor no hay sugerencias, así que también bloquea.
+        if (!sugerenciaRepository.existe(estudiante.getPersonaId(), docente.getPersonaId())) {
+            throw new BusinessException("Solo puedes solicitar un asesor sugerido por tu tutor");
+        }
+
         if (solicitudRepository.existePendientePorEstudiante(estudiante.getPersonaId())) {
             throw new BusinessException("Ya tienes una solicitud pendiente; espera la respuesta o cancélala antes de solicitar a otro docente");
         }
+
+        TipoAsesoria tipo = request.getTipo() != null ? request.getTipo() : TipoAsesoria.ASESOR;
+        verificarCupoDisponible(tesisAutorRepository.tesisActivaId(estudiante.getPersonaId()),
+                tipo, docente.getPersonaId());
 
         SolicitudAsesoria solicitud = SolicitudAsesoria.builder()
                 .estudiante(estudiante)
@@ -83,7 +97,7 @@ public class SolicitudAsesoriaServiceImpl implements SolicitudAsesoriaService {
                 .lineaInvestigacion(linea)
                 .tituloTentativo(trimToNull(request.getTituloTentativo()))
                 .mensaje(trimToNull(request.getMensaje()))
-                .tipo(request.getTipo() != null ? request.getTipo() : TipoAsesoria.ASESOR)
+                .tipo(tipo)
                 .estado(EstadoSolicitud.PENDIENTE)
                 .fechaSolicitud(LocalDateTime.now())
                 .build();
@@ -141,6 +155,9 @@ public class SolicitudAsesoriaServiceImpl implements SolicitudAsesoriaService {
             // que el estado derivado pase de SIN_ASESOR a "aceptado".
             solicitud.setEstado(EstadoSolicitud.ACEPTADA);
             materializarAsesoria(solicitud);
+            // Ambos necesitan el rol para entrar a la bandeja: el asesor con acceso completo y el
+            // co-asesor en modo consulta (el detalle viene marcado como solo lectura).
+            asesorRolService.otorgarRolAsesor(solicitud.getDocente().getPersonaId());
             // Snapshot de la Carta de aceptación (evidencia inmutable con la config vigente).
             solicitud.setDatosCarta(snapshot(resolverPlantilla.resolverCarta(solicitud, LocalDate.now())));
         }
@@ -171,7 +188,11 @@ public class SolicitudAsesoriaServiceImpl implements SolicitudAsesoriaService {
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
-    /** Crea la asesoría formal (tipo ASESOR) sobre la tesis activa del estudiante, si aún no tiene asesor. */
+    /**
+     * Crea la asesoría formal sobre la tesis activa del estudiante, respetando el tipo pedido.
+     * Se revalida el cupo aquí (y no solo al crear la solicitud) porque entre la solicitud y la
+     * aceptación pudo designarse a otro docente.
+     */
     private void materializarAsesoria(SolicitudAsesoria solicitud) {
         UUID estudianteId = solicitud.getEstudiante().getPersonaId();
         UUID tesisId = tesisAutorRepository.tesisActivaId(estudianteId);
@@ -180,12 +201,48 @@ public class SolicitudAsesoriaServiceImpl implements SolicitudAsesoriaService {
             return;
         }
         solicitud.setTesisId(tesisId);
-        if (!asesoriaRepository.existeAsesorParaTesis(tesisId)) {
-            asesoriaRepository.save(Asesoria.builder()
-                    .tesisId(tesisId)
-                    .docenteId(solicitud.getDocente().getPersonaId())
-                    .tipo("ASESOR")
-                    .build());
+        TipoAsesoria tipo = solicitud.getTipo() != null ? solicitud.getTipo() : TipoAsesoria.ASESOR;
+        verificarCupoDisponible(tesisId, tipo, solicitud.getDocente().getPersonaId());
+        asesoriaRepository.save(Asesoria.builder()
+                .tesisId(tesisId)
+                .docenteId(solicitud.getDocente().getPersonaId())
+                .tipo(tipo.name())
+                .build());
+        // Si el alumno ya había abierto su proyecto (creado sin asesor), se le copia la designación
+        // recién hecha; sin esto no aparecería en la bandeja de revisión del asesor.
+        if (tipo == TipoAsesoria.ASESOR) {
+            proyectoRepository.buscarPorTesisId(tesisId).ifPresent(asesorDesignado::sincronizar);
+        }
+    }
+
+    /**
+     * Regla del proceso: una tesis tiene <b>un solo asesor</b> y, opcionalmente, <b>un solo
+     * co-asesor</b>. El co-asesor solo existe si ya hay asesor, y nadie puede ocupar los dos
+     * puestos. Se aplica al pedir la asesoría y al aceptarla.
+     */
+    private void verificarCupoDisponible(UUID tesisId, TipoAsesoria tipo, UUID docenteId) {
+        if (tesisId == null) {
+            return; // sin tema todavía: la validación real ocurre al materializar
+        }
+        UUID asesorActual = asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR")
+                .map(Asesoria::getDocenteId).orElse(null);
+        UUID coasesorActual = asesoriaRepository.buscarPorTesisYTipo(tesisId, "COASESOR")
+                .map(Asesoria::getDocenteId).orElse(null);
+
+        if (tipo == TipoAsesoria.ASESOR && asesorActual != null) {
+            throw new BusinessException("Esta tesis ya tiene asesor designado. "
+                    + "Una segunda designación solo puede ser como co-asesor");
+        }
+        if (tipo == TipoAsesoria.COASESOR) {
+            if (asesorActual == null) {
+                throw new BusinessException("Primero debe designarse el asesor; el co-asesor se agrega después");
+            }
+            if (coasesorActual != null) {
+                throw new BusinessException("Esta tesis ya tiene co-asesor designado");
+            }
+            if (docenteId != null && docenteId.equals(asesorActual)) {
+                throw new BusinessException("Ese docente ya es tu asesor: no puede ser además co-asesor");
+            }
         }
     }
 

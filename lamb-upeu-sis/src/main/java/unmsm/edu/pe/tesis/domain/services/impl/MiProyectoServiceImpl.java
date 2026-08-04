@@ -15,6 +15,8 @@ import unmsm.edu.pe.shared.exceptions.NotFoundException;
 import unmsm.edu.pe.shared.exceptions.ValidationException;
 import unmsm.edu.pe.tesis.application.dto.*;
 import unmsm.edu.pe.tesis.application.util.ProyectoDefinicion;
+// La MISMA definición que usa el revisor: el alumno ve exactamente con qué lo van a medir.
+import unmsm.edu.pe.tesis.application.util.RubricaDefinicion;
 import unmsm.edu.pe.tesis.domain.entities.*;
 import unmsm.edu.pe.tesis.domain.enums.*;
 import unmsm.edu.pe.tesis.domain.repositories.*;
@@ -34,6 +36,10 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Inject DocenteRepository docenteRepository;
     @Inject TesisRepository tesisRepository;
     @Inject AsesoriaRepository asesoriaRepository;
+    @Inject AsesorRolService asesorRolService;
+    @Inject AsesorDesignadoService asesorDesignado;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.PlantillaRubricaRepository plantillaRubricaRepository;
+    @Inject unmsm.edu.pe.tesis.domain.services.PlantillaRubricaService plantillaRubricaService;
     @Inject ProyectoTesisRepository proyectoRepository;
     @Inject ProyectoCampoRepository campoRepository;
     @Inject ProyectoObjetivoRepository objetivoRepository;
@@ -61,6 +67,52 @@ public class MiProyectoServiceImpl implements MiProyectoService {
         Tesis tesis = tesisActiva(est);
         ProyectoTesis p = proyectoDe(tesis);
         return assembler.armar(p, tesis, est, asesorNombre(tesis.getId()));
+    }
+
+    /**
+     * La rúbrica con la que lo evaluarán, en blanco. Se arma con la MISMA definición que usa el
+     * revisor ({@link unmsm.edu.pe.tesis.application.util.RubricaDefinicion}), así que no hay forma
+     * de que el alumno vea una cosa y el revisor evalúe con otra.
+     */
+    @Override
+    @Transactional
+    public unmsm.edu.pe.tesis.application.dto.RubricaAlumnoResponse rubrica() {
+        ProyectoTesis p = proyectoDe(tesisActiva(estudianteActual()));
+        String enfoque = p.getEnfoque() != null && "CUALITATIVO".equalsIgnoreCase(p.getEnfoque().name())
+                ? "CUALITATIVO" : "CUANTITATIVO";
+        var rubrica = RubricaDefinicion.porEnfoque(enfoque);
+        var vigente = plantillaRubricaRepository.vigente(enfoque).orElse(null);
+
+        java.util.List<unmsm.edu.pe.tesis.application.dto.RubricaSeccionItem> secciones = new java.util.ArrayList<>();
+        for (var s : rubrica.secciones()) {
+            java.util.List<unmsm.edu.pe.tesis.application.dto.RubricaCriterioItem> crits = new java.util.ArrayList<>();
+            for (var c : s.criterios()) {
+                crits.add(unmsm.edu.pe.tesis.application.dto.RubricaCriterioItem.builder()
+                        .key(c.key()).titulo(c.titulo()).descripcion(c.descripcion())
+                        .cumple(c.cumple()).parcial(c.parcial()).noCumple(c.noCumple())
+                        .build());
+            }
+            secciones.add(unmsm.edu.pe.tesis.application.dto.RubricaSeccionItem.builder()
+                    .key(s.key()).titulo(s.titulo()).subtotalMaximo(s.subtotal()).criterios(crits).build());
+        }
+        return unmsm.edu.pe.tesis.application.dto.RubricaAlumnoResponse.builder()
+                .enfoque(enfoque)
+                .enfoqueLabel("CUALITATIVO".equals(enfoque) ? "Cualitativa" : "Cuantitativa / mixta")
+                .titulo(rubrica.titulo())
+                .version(vigente != null ? vigente.getVersion() : null)
+                .documentoDisponible(vigente != null)
+                .puntajeTotal(rubrica.total())
+                .puntajeAprobacion(RubricaDefinicion.APROBADO_MIN)
+                .secciones(secciones)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ArchivoDescargable rubricaDocumento() {
+        ProyectoTesis p = proyectoDe(tesisActiva(estudianteActual()));
+        return plantillaRubricaService.documentoVigente(
+                p.getEnfoque() != null ? p.getEnfoque().name() : "CUANTITATIVO");
     }
 
     @Override
@@ -492,6 +544,10 @@ public class MiProyectoServiceImpl implements MiProyectoService {
         Estudiante est = estudianteActual();
         Tesis tesis = tesisActiva(est);
         ProyectoTesis p = proyectoDe(tesis);
+        // El cierre (Turnitin + proyecto final) es posterior a la conformidad del asesor.
+        if (!Boolean.TRUE.equals(p.getCartaAsesor())) {
+            throw new BusinessException("Podrás subir el Turnitin cuando tu asesor emita su carta de opinión favorable");
+        }
         validarArchivo(contenido, contentType);
 
         var existente = documentoTesisRepository.buscarPorTesisYTipo(tesis.getId(), T_TURNITIN);
@@ -522,7 +578,10 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     public void subirProyectoFinal(byte[] contenido, String nombreOriginal, String contentType) {
         Estudiante est = estudianteActual();
         Tesis tesis = tesisActiva(est);
-        proyectoDe(tesis);
+        ProyectoTesis p = proyectoDe(tesis);
+        if (!Boolean.TRUE.equals(p.getCartaAsesor())) {
+            throw new BusinessException("Podrás subir el proyecto final cuando tu asesor emita su carta de opinión favorable");
+        }
         validarArchivo(contenido, contentType);
 
         var existente = documentoTesisRepository.buscarPorTesisYTipo(tesis.getId(), T_PROYECTO_FINAL);
@@ -836,12 +895,21 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     }
 
     private ProyectoTesis proyectoDe(Tesis tesis) {
-        return proyectoRepository.buscarPorTesisId(tesis.getId()).orElseGet(() -> {
-            UUID asesorId = asesoriaRepository.buscarPorTesisYTipo(tesis.getId(), "ASESOR")
-                    .map(Asesoria::getDocenteId).orElse(null);
-            return proyectoRepository.save(ProyectoTesis.builder()
-                    .tesisId(tesis.getId()).asesorId(asesorId).build());
-        });
+        var existente = proyectoRepository.buscarPorTesisId(tesis.getId());
+        if (existente.isPresent()) {
+            // El alumno suele abrir el editor ANTES de que su asesor acepte: en ese momento el
+            // proyecto se creó sin asesor_id. Se repara aquí para que el asesor lo vea en su bandeja.
+            asesorDesignado.sincronizar(existente.get());
+            return existente.get();
+        }
+        UUID asesorId = asesoriaRepository.buscarPorTesisYTipo(tesis.getId(), "ASESOR")
+                .map(Asesoria::getDocenteId).orElse(null);
+        // Asegura que el asesor designado tenga el rol ASESOR (auto-repara datos previos al crear el proyecto).
+        if (asesorId != null) {
+            asesorRolService.otorgarRolAsesor(asesorId);
+        }
+        return proyectoRepository.save(ProyectoTesis.builder()
+                .tesisId(tesis.getId()).asesorId(asesorId).build());
     }
 
     private Tesis tesisActiva(Estudiante est) {

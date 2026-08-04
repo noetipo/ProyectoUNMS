@@ -10,6 +10,7 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import unmsm.edu.pe.security.infrastructure.utils.SecurityUtils;
 import unmsm.edu.pe.shared.response.ApiResponse;
+import unmsm.edu.pe.tesis.application.dto.ConformidadSeccionRequest;
 import unmsm.edu.pe.tesis.application.dto.ObservarItemRequest;
 import unmsm.edu.pe.tesis.domain.services.AsesorProyectoService;
 
@@ -61,6 +62,15 @@ public class AsesorProyectoResource {
         guard();
         service.darConformidad(tesisId, campo);
         return Response.ok(ApiResponse.success("Ítem con conformidad")).build();
+    }
+
+    @POST
+    @Path("/{tesisId}/conformidad-seccion")
+    @Operation(summary = "Dar conformidad a todos los ítems de una sección (flujo por bloque)")
+    public Response conformeSeccion(@PathParam("tesisId") UUID tesisId, ConformidadSeccionRequest req) {
+        guard();
+        service.darConformidadSeccion(tesisId, req != null ? req.getCampos() : null);
+        return Response.ok(ApiResponse.success("Sección con conformidad")).build();
     }
 
     @POST

@@ -121,6 +121,18 @@ public class ProyectoTesis extends AuditableEntity {
     @Column(name = "fecha_recepcion")
     private LocalDate fechaRecepcion;
 
+    /**
+     * La Secretaría habilitó la evaluación con la rúbrica oficial. Antes esto se deducía de que
+     * existiera un Word subido por proyecto; ahora la rúbrica vive una sola vez en el sistema
+     * ({@code plantillas_rubrica}) y aquí solo se enciende el interruptor.
+     */
+    @Column(name = "rubrica_habilitada")
+    private Boolean rubricaHabilitada;
+
+    /** Versión de la rúbrica que se le aplicó (se congela: no cambia al publicarse una nueva). */
+    @Column(name = "rubrica_version", length = 20)
+    private String rubricaVersion;
+
     /** Ambos revisores dieron conformidad → proyecto listo para la defensa (Etapa 5, paso 4). */
     @Column(name = "revisores_conformes")
     private Boolean revisoresConformes;

@@ -20,4 +20,15 @@ public class AsesorSugeridoItem {
     private List<UUID> lineaIds;   // para reutilizar POST /solicitudes-asesoria (exige línea del docente)
     private long asesoriasActivas; // carga actual del docente como asesor
     private String nota;           // comentario del tutor
+    private String tipo;           // ASESOR | COASESOR — puesto para el que lo sugirió el tutor
+
+    // ── Trayectoria: el doctorando elige a quién confiar su tesis, no solo un nombre ──
+    private String categoria;          // Docente Principal / Asociado / Auxiliar
+    private String condicion;          // Nombrado / Contratado
+    private String cargoActual;        // cargo vigente, si tiene
+    private String centroLaboral;      // dónde trabaja
+    private String centroLaboralDetalle;
+    private Integer experienciaAnios;  // años desde su centro laboral más antiguo
+    private String orcid;
+    private List<String> estudios;     // grados académicos formateados
 }

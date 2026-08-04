@@ -48,6 +48,7 @@ public class CoordinadorTemaServiceImpl implements CoordinadorTemaService {
                 .total(total)
                 .conTema(conTema)
                 .sinTema(total - conTema)
+                .sinTutor(reporteRepository.contarSinTutor(facultadId, programaId))
                 .build();
     }
 

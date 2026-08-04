@@ -291,6 +291,24 @@ public class MiProyectoResource {
         }
     }
 
+    @GET @Path("/rubrica")
+    @Operation(summary = "La rúbrica (en blanco) con la que evaluarán mi proyecto")
+    public Response rubrica() {
+        guard();
+        return Response.ok(ApiResponse.success("Rúbrica de evaluación", service.rubrica())).build();
+    }
+
+    @GET @Path("/rubrica/documento")
+    @Produces(MediaType.WILDCARD)
+    @Operation(summary = "Word oficial vigente de esa rúbrica")
+    public Response rubricaDocumento() {
+        guard();
+        var a = service.rubricaDocumento();
+        return Response.ok(a.contenido(), a.contentType())
+                .header("Content-Disposition", "inline; filename=\"" + a.nombreOriginal() + "\"")
+                .build();
+    }
+
     @GET @Path("/documentos/{tipo}")
     @Produces(MediaType.WILDCARD)
     @Operation(summary = "Ver/descargar un documento propio subido (tipo = turnitin | proyecto-final)")

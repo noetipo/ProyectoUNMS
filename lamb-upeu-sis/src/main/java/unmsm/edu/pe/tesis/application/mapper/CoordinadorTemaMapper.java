@@ -30,6 +30,7 @@ public class CoordinadorTemaMapper {
                 .lineaNombre(asStr(r[10]))
                 .estado(estado)
                 .estadoDerivado(EstadoDerivado.resolver(tesisId, estado, tieneAsesor))
+                .tutorNombre(r.length > 13 ? asStr(r[13]) : null)
                 .build();
     }
 

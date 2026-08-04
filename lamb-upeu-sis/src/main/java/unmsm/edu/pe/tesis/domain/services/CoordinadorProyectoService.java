@@ -18,7 +18,7 @@ public interface CoordinadorProyectoService {
     PageResponse<DefensaBandejaItem> bandeja(String buscar, int page, int size);
 
     /** Docentes seleccionables como revisores. */
-    List<DocenteOpcion> docentesDisponibles();
+    List<DocenteOpcion> docentesDisponibles(UUID tesisId);
 
     /** Revisores ya designados de un proyecto. */
     List<RevisorItem> revisores(UUID tesisId);

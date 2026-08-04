@@ -49,6 +49,18 @@ public class ProyectoRevisorRepositoryImpl
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public List<Object[]> docentesOpcionPorLinea(UUID lineaId) {
+        return getEntityManager().createQuery(
+                        "select distinct d.personaId, p.nombres, p.apellidoPaterno, p.apellidoMaterno, d.categoria "
+                                + "from DocenteLineaInvestigacion dli join dli.docente d join d.persona p "
+                                + "where dli.lineaInvestigacion.id = :lineaId and dli.active = true and p.active = true "
+                                + "order by p.apellidoPaterno, p.apellidoMaterno")
+                .setParameter("lineaId", lineaId)
+                .getResultList();
+    }
+
+    @Override
     public Optional<ProyectoRevisor> buscarPorProyectoYDocente(UUID proyectoId, UUID docenteId) {
         return find("proyectoId = ?1 and docenteId = ?2 and active = true", proyectoId, docenteId)
                 .firstResultOptional();

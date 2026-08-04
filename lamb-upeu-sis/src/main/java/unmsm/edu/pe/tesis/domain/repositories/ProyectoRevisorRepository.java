@@ -14,6 +14,9 @@ public interface ProyectoRevisorRepository {
     /** Docentes seleccionables como revisor: [persona_id, nombres, apPaterno, apMaterno, categoria]. */
     List<Object[]> docentesOpcion();
 
+    /** Docentes que llevan una línea de investigación dada (candidatos a revisor de esa línea). */
+    List<Object[]> docentesOpcionPorLinea(UUID lineaId);
+
     /** El revisor (registro) de un proyecto para un docente concreto. */
     Optional<ProyectoRevisor> buscarPorProyectoYDocente(UUID proyectoId, UUID docenteId);
 

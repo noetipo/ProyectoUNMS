@@ -78,6 +78,12 @@ public class ProyectoEditorResponse {
 
     // Etapa 6 · ejecución
     private boolean informeFinalSubido;
+
+    /**
+     * El co-asesor entra en modo consulta: ve el proyecto y el historial, pero no observa,
+     * no da conformidad ni emite la carta. Solo lo marca el detalle del asesor.
+     */
+    private boolean soloLectura;
     private boolean informeFinalAprobado;
     private List<AvanceItem> avances;
 

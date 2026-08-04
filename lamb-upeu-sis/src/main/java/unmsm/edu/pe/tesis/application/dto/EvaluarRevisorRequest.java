@@ -4,10 +4,11 @@ import lombok.Data;
 
 import java.util.Map;
 
-/** Evaluación del revisor: puntajes por criterio + comentario + si da conformidad. */
+/** Evaluación del revisor: nivel + observación por criterio + si da conformidad. */
 @Data
 public class EvaluarRevisorRequest {
-    private Map<String, Integer> puntajes;   // criterio -> 1..4
-    private String comentario;
-    private boolean conforme;                // true = CONFORME, false = OBSERVADO
+    private Map<String, String> niveles;         // criterio -> CUMPLE | PARCIAL | NO_CUMPLE
+    private Map<String, String> observaciones;   // criterio -> observación / sugerencia (opcional)
+    private String comentario;                   // nota general (opcional)
+    private boolean conforme;                    // true = CONFORME, false = OBSERVADO
 }

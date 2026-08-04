@@ -33,10 +33,10 @@ public class CoordinadorProyectoResource {
         return Response.ok(ApiResponse.success("Bandeja recuperada", service.bandeja(buscar, page, size))).build();
     }
 
-    @GET @Path("/docentes")
-    @Operation(summary = "Docentes seleccionables como revisores")
-    public Response docentes() {
-        return Response.ok(ApiResponse.success("Docentes", service.docentesDisponibles())).build();
+    @GET @Path("/{tesisId}/docentes")
+    @Operation(summary = "Docentes de la línea de investigación de la tesis, seleccionables como revisores")
+    public Response docentes(@PathParam("tesisId") UUID tesisId) {
+        return Response.ok(ApiResponse.success("Docentes", service.docentesDisponibles(tesisId))).build();
     }
 
     @GET @Path("/{tesisId}/revisores")
@@ -53,17 +53,12 @@ public class CoordinadorProyectoResource {
     }
 
     @GET @Path("/{tesisId}/defensa")
-    @Operation(summary = "Información de la defensa programada (jurado + fecha)")
+    @Operation(summary = "Información de la defensa programada (jurado + fecha) — solo lectura")
     public Response defensa(@PathParam("tesisId") UUID tesisId) {
         return Response.ok(ApiResponse.success("Defensa", service.defensa(tesisId))).build();
     }
 
-    @POST @Path("/{tesisId}/defensa")
-    @Operation(summary = "Programar la defensa: Jurado Examinador + fecha/hora/lugar")
-    public Response programar(@PathParam("tesisId") UUID tesisId, ProgramarDefensaRequest req) {
-        service.programarDefensa(tesisId, req);
-        return Response.ok(ApiResponse.success("Defensa programada")).build();
-    }
+    // La programación de la defensa la realiza ahora la Secretaría (SecretariaDefensaResource).
 
     @GET @Path("/{tesisId}/jurado-informe")
     @Operation(summary = "Miembros del Jurado Informante designados")

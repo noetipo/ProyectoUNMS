@@ -30,13 +30,21 @@ public class CoordinadorTemaRepositoryImpl implements CoordinadorTemaRepository 
             "CASE WHEN EXISTS (SELECT 1 FROM asesorias a WHERE a.tesis_id = te.id "
                     + "AND UPPER(a.tipo) = 'ASESOR' AND a.active = true) THEN 1 ELSE 0 END";
 
+    /** Tutor vigente del estudiante: el registro del tema y la designación del tutor van de la mano. */
+    private static final String TUTOR_VIGENTE =
+            "(SELECT TRIM(CONCAT_WS(' ', pt.apellido_paterno, pt.apellido_materno) || ', ' || pt.nombres) "
+                    + "   FROM tutorias tu JOIN persona pt ON pt.id = tu.docente_id "
+                    + "  WHERE tu.estudiante_id = e.persona_id AND tu.actual = true AND tu.active = true "
+                    + "  LIMIT 1)";
+
     @Override
     @SuppressWarnings("unchecked")
     public List<Object[]> estudiantesTema(UUID facultadId, UUID programaId, Boolean conTema, String buscar, int page, int size) {
         Map<String, Object> params = new HashMap<>();
         String sql = "SELECT p.id, p.apellido_paterno, p.apellido_materno, p.nombres, "
                 + "e.codigo_sistema, e.cod_matricula, prog.nombre, prog.nivel, "
-                + "te.id, te.titulo, li.nombre, te.estado, " + ASESOR_EXISTS + " AS tiene_asesor "
+                + "te.id, te.titulo, li.nombre, te.estado, " + ASESOR_EXISTS + " AS tiene_asesor, "
+                + TUTOR_VIGENTE + " AS tutor_nombre "
                 + FROM + where(facultadId, programaId, conTema, buscar, params)
                 + " ORDER BY p.apellido_paterno ASC, p.nombres ASC LIMIT :size OFFSET :offset";
         Query q = em.createNativeQuery(sql);
@@ -67,6 +75,21 @@ public class CoordinadorTemaRepositoryImpl implements CoordinadorTemaRepository 
         String sql = "SELECT COUNT(*) FROM estudiantes e JOIN persona p ON p.id = e.persona_id "
                 + "WHERE p.active = true AND EXISTS (SELECT 1 FROM tesis_autores ta "
                 + "WHERE ta.estudiante_id = e.persona_id AND ta.es_activa = true AND ta.active = true) "
+                + facultadCond(facultadId, params) + programaCond(programaId, params);
+        return scalar(sql, params);
+    }
+
+    @Override
+    public long contarSinTutor(UUID facultadId, UUID programaId) {
+        Map<String, Object> params = new HashMap<>();
+        // Solo los que YA tienen tema: designar tutor a quien aún no tiene tema no es accionable
+        // todavía, y contarlos inflaría el aviso con trabajo que no toca hacer.
+        String sql = "SELECT COUNT(*) FROM estudiantes e JOIN persona p ON p.id = e.persona_id "
+                + "WHERE p.active = true "
+                + "AND EXISTS (SELECT 1 FROM tesis_autores ta WHERE ta.estudiante_id = e.persona_id "
+                + "            AND ta.es_activa = true AND ta.active = true) "
+                + "AND NOT EXISTS (SELECT 1 FROM tutorias tu "
+                + "                WHERE tu.estudiante_id = e.persona_id AND tu.actual = true AND tu.active = true) "
                 + facultadCond(facultadId, params) + programaCond(programaId, params);
         return scalar(sql, params);
     }

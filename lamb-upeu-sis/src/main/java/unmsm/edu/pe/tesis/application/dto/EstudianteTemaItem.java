@@ -23,4 +23,7 @@ public class EstudianteTemaItem {
     private String lineaNombre;
     private String estado;          // tesis.estado (null si sin tema)
     private String estadoDerivado;  // SIN_TEMA | SIN_ASESOR | <estado tesis>
+
+    /** Tutor vigente (null = aún sin designar). El tema y el tutor se gestionan juntos. */
+    private String tutorNombre;
 }

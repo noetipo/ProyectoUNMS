@@ -55,6 +55,20 @@ public final class ProyectoDefinicion {
         return SECCIONES.stream().anyMatch(s -> s.campos().contains(clave));
     }
 
+    /**
+     * Ítems que el asesor puede observar o dar conformidad para un enfoque: todos los campos
+     * de texto de las secciones activas + el plan de actividades ({@code "plan"}). Es el conjunto
+     * canónico que debe estar CONFORME para poder emitir la carta de opinión favorable.
+     */
+    public static List<String> itemsRevisables(EnfoqueInvestigacion enfoque) {
+        List<String> items = new java.util.ArrayList<>();
+        for (Seccion s : seccionesActivas(enfoque)) {
+            items.addAll(s.campos());
+        }
+        items.add("plan");
+        return items;
+    }
+
     /** Etiqueta legible de cada campo (para títulos del documento generado). */
     public static final Map<String, String> ETIQUETAS = Map.ofEntries(
             Map.entry("titulo", "Título del proyecto"),

@@ -27,6 +27,8 @@ public class DictamenDetalle {
     private String expediente;
     private LocalDate fechaSolicitud;
     private String estado;
+    /** Por qué se observaron los documentos (si el dictamen quedó OBSERVADO). */
+    private String motivoObservacion;
     private boolean solicitudFirmadaDisponible;
     private boolean cartaFirmadaDisponible;
     private boolean dictamenFirmadoSubido;

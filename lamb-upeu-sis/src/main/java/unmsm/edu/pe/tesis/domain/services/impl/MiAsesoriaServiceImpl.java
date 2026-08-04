@@ -17,6 +17,7 @@ import unmsm.edu.pe.tesis.application.dto.MiAsesoriaResponse;
 import unmsm.edu.pe.tesis.domain.entities.SolicitudAsesoria;
 import unmsm.edu.pe.tesis.domain.entities.Tesis;
 import unmsm.edu.pe.tesis.domain.enums.EstadoSolicitud;
+import unmsm.edu.pe.tesis.domain.enums.TipoAsesoria;
 import unmsm.edu.pe.tesis.domain.repositories.SolicitudAsesoriaRepository;
 import unmsm.edu.pe.tesis.domain.repositories.TesisRepository;
 import unmsm.edu.pe.tesis.domain.services.MiAsesoriaService;
@@ -44,6 +45,9 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
     @Inject unmsm.edu.pe.tesis.infrastructure.export.DocumentoAsesoriaRenderer renderer;
     @Inject com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     @Inject unmsm.edu.pe.personas.domain.repositories.PersonaGradoAcademicoRepository personaGradoRepository;
+    @Inject unmsm.edu.pe.tutorias.domain.repositories.TutoriaRepository tutoriaRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.AsesoriaRepository asesoriaRepository;
+    @Inject unmsm.edu.pe.personas.domain.repositories.DocenteRepository docenteRepository;
 
     @Override
     @Transactional
@@ -56,7 +60,10 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
         boolean tieneAsesor = tesisId != null && tesisRepository.tieneAsesor(tesisId);
         String estadoTesis = tesis != null && tesis.getEstado() != null ? tesis.getEstado().name() : null;
 
-        SolicitudAsesoria sol = solicitudRepository.ultimaDeEstudiante(estudianteId).orElse(null);
+        // El proceso lo marca la solicitud del ASESOR; la de co-asesoría se informa aparte.
+        SolicitudAsesoria sol = solicitudPrincipal(estudianteId).orElse(null);
+        SolicitudAsesoria solCo = solicitudRepository
+                .ultimaDeEstudiantePorTipo(estudianteId, TipoAsesoria.COASESOR).orElse(null);
 
         MiAsesoriaResponse.MiAsesoriaResponseBuilder b = MiAsesoriaResponse.builder()
                 .conTema(tesis != null)
@@ -65,9 +72,40 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
                 .lineaNombre(tesis != null && tesis.getLineaInvestigacion() != null ? tesis.getLineaInvestigacion().getNombre() : null)
                 .nivel(tesis != null && tesis.getNivel() != null ? tesis.getNivel().name() : null)
                 .estadoDerivado(EstadoDerivado.resolver(tesisId, estadoTesis, tieneAsesor))
-                .sugeridos(sugerenciaService.listar(estudianteId))
+                .sugeridos(sugerenciaService.listar(estudianteId));
+
+        // Designación vigente: un asesor y, como máximo, un co-asesor.
+        String asesorNombre = nombreDocenteDeAsesoria(tesisId, "ASESOR");
+        String coasesorNombre = nombreDocenteDeAsesoria(tesisId, "COASESOR");
+        boolean coasesorPendiente = solCo != null && solCo.getEstado() == EstadoSolicitud.PENDIENTE;
+        b.asesorNombre(asesorNombre)
+                .coasesorNombre(coasesorNombre)
+                .asesorDocenteId(docenteDeAsesoria(tesisId, "ASESOR"))
+                .coasesorDocenteId(docenteDeAsesoria(tesisId, "COASESOR"))
+                .puedeSolicitarCoasesor(asesorNombre != null && coasesorNombre == null && !coasesorPendiente);
+        if (solCo != null) {
+            b.coasesorSolicitudId(solCo.getId())
+                    .coasesorSolicitudEstado(solCo.getEstado().name())
+                    .coasesorSolicitadoNombre(solCo.getDocente() != null ? nombre(solCo.getDocente().getPersona()) : null)
+                    .coasesorMotivoRespuesta(solCo.getMotivoRespuesta());
+        }
+
+        // Tutor asignado (tutoría vigente): el estudiante debe ver quién es su tutor.
+        tutoriaRepository.findVigenteByEstudiante(estudianteId).ifPresent(t -> {
+            Docente td = t.getDocente();
+            if (td != null) {
+                b.tutorId(td.getPersonaId())
+                        .tutorNombre(nombre(td.getPersona()))
+                        .tutorGrado(personaGradoRepository.gradoPrincipal(td.getPersonaId()));
+            }
+        });
+
+        b
                 .solicitudEstado(sol != null ? sol.getEstado().name() : "SIN_SOLICITUD")
-                .solicitudPdfDisponible(sol != null)
+                // Los documentos firmados son un paquete post-aceptación: la solicitud y la carta
+                // solo se descargan/firman/suben cuando el ASESOR ha aceptado la asesoría (una
+                // solicitud de co-asesoría en curso no los bloquea: el co-asesor es opcional).
+                .solicitudPdfDisponible(sol != null && sol.getEstado() == EstadoSolicitud.ACEPTADA)
                 .cartaPdfDisponible(sol != null && sol.getEstado() == EstadoSolicitud.ACEPTADA);
 
         if (sol != null) {
@@ -100,7 +138,7 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
     @Transactional
     public byte[] documentoBytes(String tipo, String formato) {
         Estudiante estudiante = estudianteActual(); // valida propiedad: solo el estudiante autenticado
-        SolicitudAsesoria sol = solicitudRepository.ultimaDeEstudiante(estudiante.getPersonaId())
+        SolicitudAsesoria sol = solicitudPrincipal(estudiante.getPersonaId())
                 .orElseThrow(() -> new BusinessException("Aún no has solicitado asesoría"));
 
         String t = tipo != null ? tipo.trim().toUpperCase() : "";
@@ -109,6 +147,9 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
         String plantilla;
         java.util.Map<String, String> datos;
         if (TIPO_SOLICITUD.equals(t)) {
+            if (sol.getEstado() != EstadoSolicitud.ACEPTADA) {
+                throw new BusinessException("La solicitud estará disponible para firma cuando el asesor acepte la asesoría");
+            }
             plantilla = unmsm.edu.pe.tesis.infrastructure.export.PlantillaAsesoria.SOLICITUD;
             LocalDate f = sol.getFechaSolicitud() != null ? sol.getFechaSolicitud().toLocalDate() : LocalDate.now();
             datos = leerSnapshot(sol.getDatosSolicitud(), () -> resolverPlantilla.resolverSolicitud(sol, f));
@@ -144,6 +185,12 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
         Estudiante est = estudianteActual();
         Tesis tesis = tesisRepository.tesisActivaDeEstudiante(est.getPersonaId())
                 .orElseThrow(() -> new BusinessException("No tienes una tesis activa"));
+        // El paquete de firmados (solicitud y carta) solo se sube tras la aceptación del asesor.
+        SolicitudAsesoria sol = solicitudPrincipal(est.getPersonaId())
+                .orElseThrow(() -> new BusinessException("Aún no has solicitado asesoría"));
+        if (sol.getEstado() != EstadoSolicitud.ACEPTADA) {
+            throw new BusinessException("Podrás subir los documentos firmados cuando el asesor acepte la asesoría");
+        }
         String t = tipoFirmado(tipo);
         validarArchivo(contenido, contentType);
         String hash = sha256(contenido);
@@ -232,6 +279,17 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
     }
 
     // ── helpers ──
+    /**
+     * Solicitud que representa la asesoría del estudiante: la del <b>asesor</b>. El co-asesor es
+     * opcional y su solicitud llega después, así que tomar "la última" haría que una co-asesoría
+     * pendiente escondiera los documentos de un asesor que ya aceptó. Si aún no hay ninguna
+     * solicitud de asesor (datos antiguos), se cae a la última registrada.
+     */
+    private java.util.Optional<SolicitudAsesoria> solicitudPrincipal(UUID estudianteId) {
+        return solicitudRepository.ultimaDeEstudiantePorTipo(estudianteId, TipoAsesoria.ASESOR)
+                .or(() -> solicitudRepository.ultimaDeEstudiante(estudianteId));
+    }
+
     private DatosDocumentoAsesoria datos(Estudiante e, SolicitudAsesoria sol, LocalDate fecha) {
         Tesis tesis = tesisRepository.tesisActivaDeEstudiante(e.getPersonaId()).orElse(null);
         Docente asesor = sol.getDocente();
@@ -257,6 +315,26 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
                 .orElseThrow(() -> new NotFoundException("El usuario autenticado no tiene una persona asociada"));
         return estudianteRepository.findByPersonaId(persona.getId())
                 .orElseThrow(() -> new BusinessException("El usuario autenticado no tiene perfil de estudiante"));
+    }
+
+    /** Id del docente de la asesoría vigente del tipo pedido (ASESOR | COASESOR), o null. */
+    private UUID docenteDeAsesoria(UUID tesisId, String tipo) {
+        if (tesisId == null) {
+            return null;
+        }
+        return asesoriaRepository.buscarPorTesisYTipo(tesisId, tipo)
+                .map(a -> a.getDocenteId()).orElse(null);
+    }
+
+    /** Nombre del docente de la asesoría vigente del tipo pedido (ASESOR | COASESOR), o null. */
+    private String nombreDocenteDeAsesoria(UUID tesisId, String tipo) {
+        if (tesisId == null) {
+            return null;
+        }
+        return asesoriaRepository.buscarPorTesisYTipo(tesisId, tipo)
+                .map(a -> docenteRepository.findByPersonaId(a.getDocenteId()).orElse(null))
+                .map(d -> nombre(d.getPersona()))
+                .orElse(null);
     }
 
     private String nombre(Persona p) {

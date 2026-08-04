@@ -15,6 +15,7 @@ import unmsm.edu.pe.personas.domain.entities.Persona;
 import unmsm.edu.pe.personas.domain.enums.GradoAcademico;
 import unmsm.edu.pe.personas.domain.enums.TipoDocumento;
 import unmsm.edu.pe.security.domain.entities.User;
+import unmsm.edu.pe.tesis.domain.entities.SugerenciaAsesor;
 import unmsm.edu.pe.security.domain.enums.UserStatus;
 
 import javax.crypto.Mac;
@@ -68,6 +69,13 @@ class SolicitudAsesoriaIntegrationTest {
             em.persist(li);
             em.persist(DocenteLineaInvestigacion.builder()
                     .docente(doc).lineaInvestigacion(li).esPrincipal(true).build());
+
+            // El flujo oficial exige que el asesor haya sido sugerido por el tutor del estudiante.
+            em.persist(SugerenciaAsesor.builder()
+                    .estudianteId(sp.getId())
+                    .tutorId(UUID.randomUUID())
+                    .asesorDocenteId(dp.getId())
+                    .build());
             em.flush();
 
             estUserId = su.getId();

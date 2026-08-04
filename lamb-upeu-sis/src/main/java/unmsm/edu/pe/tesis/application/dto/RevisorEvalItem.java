@@ -21,5 +21,7 @@ public class RevisorEvalItem {
     private String estado;          // DESIGNADO | OBSERVADO | CONFORME
     private String comentario;      // observación del revisor
     private String respuesta;       // levantamiento del estudiante
-    private Integer puntajeTotal;
+    private Integer puntajeTotal;   // puntaje obtenido (sobre 100)
+    private Integer puntajeMaximo;  // 100
+    private Boolean aprobado;       // puntajeTotal ≥ 65 (null si aún no evaluó)
 }

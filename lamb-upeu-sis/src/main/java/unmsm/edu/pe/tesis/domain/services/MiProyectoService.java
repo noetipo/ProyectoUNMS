@@ -9,6 +9,12 @@ public interface MiProyectoService {
 
     ProyectoEditorResponse editor();
 
+    /** La rúbrica (en blanco) con la que se evaluará su proyecto, según su enfoque. */
+    unmsm.edu.pe.tesis.application.dto.RubricaAlumnoResponse rubrica();
+
+    /** El Word oficial vigente de esa rúbrica. */
+    ArchivoDescargable rubricaDocumento();
+
     void guardarCampo(String campo, String valor);
 
     void setEnfoque(String enfoque);

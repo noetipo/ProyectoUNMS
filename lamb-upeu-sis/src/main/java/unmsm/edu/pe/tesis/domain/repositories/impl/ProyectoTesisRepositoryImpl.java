@@ -199,7 +199,14 @@ public class ProyectoTesisRepositoryImpl
     private String where(UUID asesorId, String estado, String buscar, Map<String, Object> params) {
         StringBuilder w = new StringBuilder(" WHERE pr.active = true AND pr.listo_revision = true ");
         if (asesorId != null) {
-            w.append(" AND pr.asesor_id = :asesorId ");
+            // La designación vigente vive en `asesorias`: se consulta ahí y NO por pr.asesor_id,
+            // que es una copia escrita al crear el proyecto (si el alumno abrió el editor antes de
+            // que su asesor aceptara, quedó en NULL y la bandeja salía vacía).
+            // El co-asesor ve los mismos proyectos que su asesor, pero el detalle le llega en
+            // modo consulta (ver AsesorProyectoServiceImpl.detalle).
+            w.append(" AND (pr.asesor_id = :asesorId OR EXISTS (SELECT 1 FROM asesorias ca ")
+             .append("      WHERE ca.tesis_id = pr.tesis_id AND ca.docente_id = :asesorId ")
+             .append("      AND UPPER(ca.tipo) IN ('ASESOR', 'COASESOR') AND ca.active = true)) ");
             params.put("asesorId", asesorId);
         }
         if (estado != null && !estado.isBlank()) {

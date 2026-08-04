@@ -3,6 +3,7 @@ package unmsm.edu.pe.tesis.domain.services.impl;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import unmsm.edu.pe.personas.domain.entities.LineaInvestigacion;
 import unmsm.edu.pe.personas.domain.entities.Persona;
 import unmsm.edu.pe.personas.domain.repositories.DocenteRepository;
 import unmsm.edu.pe.personas.domain.repositories.PersonaRepository;
@@ -13,6 +14,7 @@ import unmsm.edu.pe.shared.exceptions.ValidationException;
 import unmsm.edu.pe.shared.response.PageResponse;
 import unmsm.edu.pe.tesis.application.dto.*;
 import unmsm.edu.pe.tesis.domain.entities.Asesoria;
+import unmsm.edu.pe.tesis.domain.entities.Tesis;
 import unmsm.edu.pe.tesis.domain.entities.ProyectoJurado;
 import unmsm.edu.pe.tesis.domain.entities.ProyectoRevisor;
 import unmsm.edu.pe.tesis.domain.entities.ProyectoTesis;
@@ -22,6 +24,7 @@ import unmsm.edu.pe.tesis.domain.repositories.AsesoriaRepository;
 import unmsm.edu.pe.tesis.domain.repositories.ProyectoJuradoRepository;
 import unmsm.edu.pe.tesis.domain.repositories.ProyectoRevisorRepository;
 import unmsm.edu.pe.tesis.domain.repositories.ProyectoTesisRepository;
+import unmsm.edu.pe.tesis.domain.repositories.TesisRepository;
 import unmsm.edu.pe.tesis.domain.services.CoordinadorProyectoService;
 
 import java.util.ArrayList;
@@ -35,6 +38,7 @@ public class CoordinadorProyectoServiceImpl implements CoordinadorProyectoServic
 
     @Inject SecurityUtils securityUtils;
     @Inject ProyectoTesisRepository proyectoRepository;
+    @Inject TesisRepository tesisRepository;
     @Inject ProyectoRevisorRepository revisorRepository;
     @Inject AsesoriaRepository asesoriaRepository;
     @Inject ProyectoJuradoRepository juradoRepository;
@@ -54,9 +58,22 @@ public class CoordinadorProyectoServiceImpl implements CoordinadorProyectoServic
 
     @Override
     @Transactional
-    public List<DocenteOpcion> docentesDisponibles() {
+    public List<DocenteOpcion> docentesDisponibles(UUID tesisId) {
         guard();
-        return revisorRepository.docentesOpcion().stream()
+        // Solo docentes que llevan la línea de investigación del tema de la tesis.
+        UUID lineaId = tesisRepository.buscarPorId(tesisId)
+                .map(Tesis::getLineaInvestigacion)
+                .map(LineaInvestigacion::getId)
+                .orElse(null);
+        // El asesor del proyecto no puede ser revisor: se excluye de la lista.
+        UUID asesorId = asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR")
+                .map(Asesoria::getDocenteId).orElse(null);
+        // Estricto: SOLO docentes de la línea de investigación de la tesis. Sin línea → sin candidatos.
+        List<Object[]> filas = lineaId != null
+                ? revisorRepository.docentesOpcionPorLinea(lineaId)
+                : List.of();
+        return filas.stream()
+                .filter(r -> asesorId == null || !asesorId.equals(r[0]))
                 .map(r -> DocenteOpcion.builder()
                         .id((UUID) r[0])
                         .nombre(nombre(asStr(r[1]), asStr(r[2]), asStr(r[3])))

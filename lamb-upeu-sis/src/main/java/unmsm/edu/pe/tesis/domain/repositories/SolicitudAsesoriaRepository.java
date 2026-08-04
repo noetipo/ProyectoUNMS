@@ -2,6 +2,7 @@ package unmsm.edu.pe.tesis.domain.repositories;
 
 import unmsm.edu.pe.tesis.domain.entities.SolicitudAsesoria;
 import unmsm.edu.pe.tesis.domain.enums.EstadoSolicitud;
+import unmsm.edu.pe.tesis.domain.enums.TipoAsesoria;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,6 +17,13 @@ public interface SolicitudAsesoriaRepository {
 
     /** Última solicitud del estudiante (cualquier estado), la más reciente por fecha. */
     Optional<SolicitudAsesoria> ultimaDeEstudiante(UUID estudianteId);
+
+    /**
+     * Última solicitud del estudiante para un puesto concreto (ASESOR | COASESOR). El paquete de
+     * documentos (solicitud y carta) cuelga del <b>asesor</b>: una solicitud posterior de
+     * co-asesoría no debe pisarlo (el co-asesor es opcional).
+     */
+    Optional<SolicitudAsesoria> ultimaDeEstudiantePorTipo(UUID estudianteId, TipoAsesoria tipo);
 
     /**
      * Bandeja del docente. Cada fila: [id, estudiante_persona_id, nombres,

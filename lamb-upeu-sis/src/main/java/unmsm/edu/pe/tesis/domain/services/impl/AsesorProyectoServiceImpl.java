@@ -12,6 +12,7 @@ import unmsm.edu.pe.security.infrastructure.utils.SecurityUtils;
 import unmsm.edu.pe.shared.exceptions.BusinessException;
 import unmsm.edu.pe.shared.exceptions.NotFoundException;
 import unmsm.edu.pe.shared.response.PageResponse;
+import unmsm.edu.pe.tesis.application.util.ProyectoDefinicion;
 import unmsm.edu.pe.tesis.application.dto.ObservarItemRequest;
 import unmsm.edu.pe.tesis.application.dto.ProyectoBandejaItem;
 import unmsm.edu.pe.tesis.application.dto.ProyectoEditorResponse;
@@ -27,6 +28,7 @@ import unmsm.edu.pe.tesis.domain.services.AsesorProyectoService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -44,6 +46,7 @@ public class AsesorProyectoServiceImpl implements AsesorProyectoService {
     @Inject ProyectoRevisionRepository revisionRepository;
     @Inject ProyectoRevisionEventoRepository eventoRepository;
     @Inject ProyectoEditorAssembler assembler;
+    @Inject AsesorDesignadoService asesorDesignado;
 
     private static final java.util.Set<EstadoItemRevision> PENDIENTES = java.util.Set.of(
             EstadoItemRevision.OBSERVADO, EstadoItemRevision.EN_CORRECCION, EstadoItemRevision.CORREGIDO);
@@ -65,10 +68,18 @@ public class AsesorProyectoServiceImpl implements AsesorProyectoService {
         Docente asesor = docenteActual();
         ProyectoTesis p = proyectoRepository.buscarPorTesisId(tesisId)
                 .orElseThrow(() -> new NotFoundException("El proyecto aún no ha sido iniciado por el estudiante"));
-        verificarAsesor(tesisId, asesor);
+        // El co-asesor también abre el detalle, pero en modo consulta.
+        boolean coasesor = esCoasesor(tesisId, asesor);
+        if (!coasesor) {
+            verificarAsesor(tesisId, asesor);
+            asesorDesignado.sincronizar(p);
+        }
         Tesis tesis = tesisRepository.buscarPorId(tesisId)
                 .orElseThrow(() -> new NotFoundException("Tesis no encontrada"));
-        return assembler.armar(p, tesis, estudianteDe(tesisId), nombre(asesor.getPersona()));
+        ProyectoEditorResponse editor =
+                assembler.armar(p, tesis, estudianteDe(tesisId), nombre(asesor.getPersona()), "ASESOR");
+        editor.setSoloLectura(coasesor);
+        return editor;
     }
 
     @Override
@@ -120,16 +131,49 @@ public class AsesorProyectoServiceImpl implements AsesorProyectoService {
 
     @Override
     @Transactional
+    public void darConformidadSeccion(UUID tesisId, List<String> campos) {
+        Docente asesor = docenteActual();
+        ProyectoTesis p = proyecto(tesisId, asesor);
+        verificarRevisionAbierta(p);
+        if (campos == null || campos.isEmpty()) return;
+        for (String campo : campos) {
+            ProyectoRevision rev = revisionRepository.buscarPorProyectoYCampo(p.getId(), campo)
+                    .orElseGet(() -> ProyectoRevision.builder().proyectoId(p.getId()).campo(campo).build());
+            EstadoItemRevision st = rev.getEstado();
+            // No pisar una observación viva (el estudiante aún debe corregirla); lo demás se aprueba.
+            if (st == EstadoItemRevision.CONFORME
+                    || st == EstadoItemRevision.OBSERVADO
+                    || st == EstadoItemRevision.EN_CORRECCION) {
+                continue;
+            }
+            rev.setEstado(EstadoItemRevision.CONFORME);
+            rev = revisionRepository.save(rev);
+            registrarEvento(rev.getId(), "CONFORMIDAD", nombre(asesor.getPersona()), "ASESOR",
+                    "El asesor da conformidad al ítem.");
+        }
+        boolean quedanPendientes = revisionRepository.listarPorProyecto(p.getId()).stream()
+                .anyMatch(r -> PENDIENTES.contains(r.getEstado()));
+        if (!quedanPendientes) {
+            p.setEstado(EstadoProyecto.CONFORME);
+            proyectoRepository.save(p);
+        }
+    }
+
+    @Override
+    @Transactional
     public void emitirCartaOpinion(UUID tesisId) {
         Docente asesor = docenteActual();
         ProyectoTesis p = proyecto(tesisId, asesor);
         if (!Boolean.TRUE.equals(p.getListoRevision())) {
             throw new BusinessException("El estudiante aún no ha enviado el proyecto a revisión");
         }
-        boolean quedanPendientes = revisionRepository.listarPorProyecto(p.getId()).stream()
-                .anyMatch(r -> PENDIENTES.contains(r.getEstado()));
-        if (quedanPendientes) {
-            throw new BusinessException("Aún hay ítems observados sin conformidad");
+        // Debe estar CONFORME cada ítem revisable del enfoque (campos + plan), no solo "sin observaciones".
+        Map<String, EstadoItemRevision> estados = revisionRepository.listarPorProyecto(p.getId()).stream()
+                .collect(Collectors.toMap(ProyectoRevision::getCampo, ProyectoRevision::getEstado, (a, b) -> b));
+        boolean todosConformes = ProyectoDefinicion.itemsRevisables(p.getEnfoque()).stream()
+                .allMatch(k -> estados.get(k) == EstadoItemRevision.CONFORME);
+        if (!todosConformes) {
+            throw new BusinessException("Aún hay ítems sin conformidad del asesor");
         }
         p.setCartaAsesor(true);
         p.setFechaCartaAsesor(LocalDate.now());
@@ -138,10 +182,20 @@ public class AsesorProyectoServiceImpl implements AsesorProyectoService {
     }
 
     // ── helpers ──
-    /** Una vez emitida la carta de opinión favorable, la revisión queda cerrada: no se puede observar ni dar conformidad. */
+    /**
+     * Una vez emitida la carta de opinión favorable, la revisión queda cerrada: no se puede observar ni dar
+     * conformidad. Además, si el proyecto ya avanzó a etapas posteriores (revisores/defensa/informe final),
+     * el asesor queda bloqueado igualmente: el flujo es hacia adelante, sin retroceder pasos.
+     */
     private void verificarRevisionAbierta(ProyectoTesis p) {
         if (Boolean.TRUE.equals(p.getCartaAsesor())) {
             throw new BusinessException("La carta de opinión favorable ya fue emitida; la revisión está cerrada");
+        }
+        if (Boolean.TRUE.equals(p.getRevisoresConformes())
+                || Boolean.TRUE.equals(p.getDefensaProgramada())
+                || Boolean.TRUE.equals(p.getInformeFinalAprobado())
+                || Boolean.TRUE.equals(p.getInformeFinalRevisado())) {
+            throw new BusinessException("El proyecto ya avanzó a una etapa posterior; la revisión del asesor está cerrada.");
         }
     }
 
@@ -149,15 +203,29 @@ public class AsesorProyectoServiceImpl implements AsesorProyectoService {
         ProyectoTesis p = proyectoRepository.buscarPorTesisId(tesisId)
                 .orElseThrow(() -> new NotFoundException("El proyecto no existe"));
         verificarAsesor(tesisId, asesor);
+        asesorDesignado.sincronizar(p); // repara la copia asesor_id si el proyecto nació sin asesor
         return p;
     }
 
+    /**
+     * Solo el asesor principal actúa sobre el proyecto. El co-asesor no pasa por aquí: sus
+     * accesos de escritura (observar, dar conformidad, carta) quedan bloqueados con este mensaje.
+     */
     private void verificarAsesor(UUID tesisId, Docente asesor) {
         UUID asesorId = asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR")
                 .map(a -> a.getDocenteId()).orElse(null);
         if (asesorId == null || !asesorId.equals(asesor.getPersonaId())) {
-            throw new BusinessException("No eres el asesor de esta tesis");
+            throw new BusinessException(esCoasesor(tesisId, asesor)
+                    ? "Eres co-asesor de esta tesis: tu acceso es de consulta; la revisión la realiza el asesor"
+                    : "No eres el asesor de esta tesis");
         }
+    }
+
+    /** ¿El docente es el co-asesor de esta tesis? */
+    private boolean esCoasesor(UUID tesisId, Docente docente) {
+        return asesoriaRepository.buscarPorTesisYTipo(tesisId, "COASESOR")
+                .map(a -> docente.getPersonaId().equals(a.getDocenteId()))
+                .orElse(false);
     }
 
     private unmsm.edu.pe.personas.domain.entities.Estudiante estudianteDe(UUID tesisId) {
