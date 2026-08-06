@@ -61,8 +61,13 @@ public class PanelServiceImpl implements PanelService {
                 .rol(rol)
                 .rolLabel(rolLabel(rol))
                 .saludo(saludo() + (persona != null && persona.getNombres() != null
-                        ? ", " + primerNombre(persona.getNombres()) : ""))
-                .agregados(agregados(alumnos));
+                        ? ", " + primerNombre(persona.getNombres()) : ""));
+
+        // Las cifras del programa son para quien gestiona o enseña; el doctorando ve las suyas.
+        boolean institucional = !"ESTUDIANTE".equals(rol);
+        if (institucional) {
+            b.agregados(agregados(alumnos));
+        }
 
         switch (rol) {
             case "ESTUDIANTE" -> doctorando(persona, alumnos, b);
@@ -72,7 +77,9 @@ public class PanelServiceImpl implements PanelService {
             case "COORDINADOR" -> coordinador(alumnos, b);
             case "TUTOR" -> tutor(persona, alumnos, b);
             default -> b.subtitulo("Así va el proceso de titulación del programa.")
-                    .metricas(List.of()).pendientes(List.of());
+                    .metricas(List.of()).pendientes(List.of())
+                    .graficos(List.of(gEtapas(alumnos, "Doctorandos por etapa", "el proceso completo"),
+                            gLineas(alumnos)));
         }
         return b.build();
     }
@@ -134,6 +141,19 @@ public class PanelServiceImpl implements PanelService {
                     .icono("triangle-alert").link("/admin/mi-tesis/avance").build());
         }
         b.pendientes(pend);
+
+        // Sus gráficos: su avance, su recorrido y sus notas. Nada de otros doctorandos.
+        List<PanelResponse.Grafico> gs = new ArrayList<>();
+        gs.add(gMiAvance(yo));
+        if (yo.getTesisId() != null) {
+            var proy = proyectoRepository.buscarPorTesisId(yo.getTesisId()).orElse(null);
+            if (proy != null) {
+                var notas = gMisNotas(proy.getId());
+                if (notas != null) gs.add(notas);
+            }
+        }
+        gs.add(gMisHitos(yo));
+        b.graficos(gs);
     }
 
     /** El asesor: sus asesorados y qué espera de él cada uno. */
@@ -180,6 +200,19 @@ public class PanelServiceImpl implements PanelService {
                     .link("/admin/revision-proyecto").build());
         }
         b.pendientes(pend);
+
+        // Sus asesorados por estado + en qué etapa están (solo los suyos).
+        Map<String, Long> estados = new LinkedHashMap<>();
+        estados.put("En elaboración", total - porRevisar - observados - conformes);
+        estados.put("Por revisar", porRevisar);
+        estados.put("Observados", observados);
+        estados.put("Conformes", conformes);
+        List<UUID> misTesis = filas.stream().map(r -> (UUID) r[0]).toList();
+        b.graficos(List.of(
+                gEstados("misasesorados", "Mis asesorados", "estado de cada proyecto", estados,
+                        List.of("#cbd5e1", "#f59e0b", "#e11d48", "#059669")),
+                gEtapas(alumnos.stream().filter(a -> misTesis.contains(a.getTesisId())).toList(),
+                        "Mis asesorados por etapa", "dónde está cada uno")));
     }
 
     /** El revisor: sus evaluaciones de rúbrica. */
@@ -218,6 +251,31 @@ public class PanelServiceImpl implements PanelService {
                     .link("/admin/revisor-proyecto").build());
         }
         b.pendientes(pend);
+
+        Map<String, Long> estados = new LinkedHashMap<>();
+        estados.put("Por evaluar", pendientes);
+        estados.put("Observados", observados);
+        estados.put("Conformes", conformes);
+        List<PanelResponse.Grafico> gs = new ArrayList<>();
+        gs.add(gEstados("misevaluaciones", "Mis evaluaciones", "estado de cada rúbrica", estados,
+                List.of("#f59e0b", "#e11d48", "#059669")));
+        // Los puntajes que él mismo puso (columna 4 de la bandeja).
+        List<String> cats = new ArrayList<>();
+        List<Long> datos = new ArrayList<>();
+        int n = 1;
+        for (Object[] r : mios) {
+            if (r[4] == null) continue;
+            cats.add("Proyecto " + n++);
+            datos.add(Long.parseLong(str(r[4])));
+        }
+        if (!cats.isEmpty()) {
+            gs.add(PanelResponse.Grafico.builder().id("mispuntajes")
+                    .titulo("Puntajes que he asignado").subtitulo("sobre 100 · aprueba con 65")
+                    .tipo("barras").categorias(cats)
+                    .series(List.of(PanelResponse.Serie.builder().nombre("Puntaje").datos(datos).build()))
+                    .colores(List.of("#0369a1")).build());
+        }
+        b.graficos(gs);
     }
 
     /** La Secretaría: su cola de trámite. */
@@ -269,6 +327,12 @@ public class PanelServiceImpl implements PanelService {
                     .link("/admin/seguimiento-alumnos").build());
         }
         b.pendientes(pend);
+
+        b.graficos(List.of(
+                gEtapas(alumnos, "Doctorandos por etapa", "el proceso completo"),
+                gDictamenes(),
+                gAntiguedad(alumnos),
+                gResponsables(alumnos)));
     }
 
     /** El coordinador: designaciones que dependen de él. */
@@ -307,6 +371,12 @@ public class PanelServiceImpl implements PanelService {
                     .link("/admin/registro-tema").build());
         }
         b.pendientes(pend);
+
+        b.graficos(List.of(
+                gEtapas(alumnos, "Doctorandos por etapa", "el proceso completo"),
+                gLineas(alumnos),
+                gAntiguedad(alumnos),
+                gResponsables(alumnos)));
     }
 
     /** El tutor: sus tutorandos y las sugerencias de asesor. */
@@ -335,6 +405,166 @@ public class PanelServiceImpl implements PanelService {
                     .link("/admin/mis-tutorandos").build());
         }
         b.pendientes(pend);
+
+        b.graficos(List.of(
+                gEtapas(mios, "Mis tutorandos por etapa", "en qué punto va cada uno"),
+                gAntiguedad(mios)));
+    }
+
+    // ── Gráficos ─────────────────────────────────────────────────────────────
+
+    /** Embudo de las 8 etapas: cuántos doctorandos hay en cada una. */
+    private PanelResponse.Grafico gEtapas(List<SeguimientoAlumnoItem> alumnos, String titulo, String sub) {
+        long[] c = new long[EtapasProceso.TOTAL + 1];
+        for (SeguimientoAlumnoItem a : alumnos) {
+            int e = Math.min(Math.max(a.getEtapaNumero(), 1), EtapasProceso.TOTAL);
+            c[e]++;
+        }
+        List<String> cats = new ArrayList<>();
+        List<Long> datos = new ArrayList<>();
+        for (int i = 1; i <= EtapasProceso.TOTAL; i++) {
+            cats.add(i + ". " + EtapasProceso.corto(i));
+            datos.add(c[i]);
+        }
+        return PanelResponse.Grafico.builder()
+                .id("etapas").titulo(titulo).subtitulo(sub).tipo("barrasH").ancho(true)
+                .categorias(cats)
+                .series(List.of(PanelResponse.Serie.builder().nombre("Doctorandos").datos(datos).build()))
+                .colores(List.of("#8C1D2E"))
+                .build();
+    }
+
+    /** Distribución por línea de investigación (las 6 con más doctorandos). */
+    private PanelResponse.Grafico gLineas(List<SeguimientoAlumnoItem> alumnos) {
+        Map<String, Long> m = new LinkedHashMap<>();
+        for (SeguimientoAlumnoItem a : alumnos) {
+            if (a.getLineaNombre() != null && !a.getLineaNombre().isBlank()) {
+                m.merge(a.getLineaNombre(), 1L, Long::sum);
+            }
+        }
+        List<Map.Entry<String, Long>> top = m.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed()).limit(6).toList();
+        return PanelResponse.Grafico.builder()
+                .id("lineas").titulo("Por línea de investigación").subtitulo("dónde se concentran los temas")
+                .tipo("dona")
+                .categorias(top.stream().map(Map.Entry::getKey).toList())
+                .series(List.of(PanelResponse.Serie.builder().nombre("Doctorandos")
+                        .datos(top.stream().map(Map.Entry::getValue).toList()).build()))
+                .build();
+    }
+
+    /** Cuánto tiempo llevan quietos los expedientes. */
+    private PanelResponse.Grafico gAntiguedad(List<SeguimientoAlumnoItem> alumnos) {
+        long alDia = 0, medio = 0, tarde = 0, sinDatos = 0;
+        for (SeguimientoAlumnoItem a : alumnos) {
+            Integer d = a.getDiasEnEtapa();
+            if (d == null) sinDatos++;
+            else if (d <= 30) alDia++;
+            else if (d <= 60) medio++;
+            else tarde++;
+        }
+        return PanelResponse.Grafico.builder()
+                .id("antiguedad").titulo("Tiempo sin movimiento").subtitulo("desde el último hito registrado")
+                .tipo("dona")
+                .categorias(List.of("Al día (≤30 d)", "31 a 60 días", "Más de 60 días", "Sin hitos"))
+                .series(List.of(PanelResponse.Serie.builder().nombre("Doctorandos")
+                        .datos(List.of(alDia, medio, tarde, sinDatos)).build()))
+                .colores(List.of("#059669", "#f59e0b", "#e11d48", "#cbd5e1"))
+                .build();
+    }
+
+    /** Quién tiene la pelota: reparto de responsables de lo pendiente. */
+    private PanelResponse.Grafico gResponsables(List<SeguimientoAlumnoItem> alumnos) {
+        Map<String, Long> m = new LinkedHashMap<>();
+        for (SeguimientoAlumnoItem a : alumnos) {
+            String r = etiquetaResponsable(a.getResponsable());
+            if (!"—".equals(r)) m.merge(r, 1L, Long::sum);
+        }
+        return PanelResponse.Grafico.builder()
+                .id("responsables").titulo("Quién tiene la pelota").subtitulo("responsable del siguiente paso")
+                .tipo("barras")
+                .categorias(new ArrayList<>(m.keySet()))
+                .series(List.of(PanelResponse.Serie.builder().nombre("Expedientes")
+                        .datos(new ArrayList<>(m.values())).build()))
+                .colores(List.of("#0369a1"))
+                .build();
+    }
+
+    /** Estado de los dictámenes de designación. */
+    private PanelResponse.Grafico gDictamenes() {
+        return PanelResponse.Grafico.builder()
+                .id("dictamenes").titulo("Dictámenes de designación").subtitulo("estado de la cola")
+                .tipo("dona")
+                .categorias(List.of("Sin redactar", "Falta la firma", "Firmados", "Observados"))
+                .series(List.of(PanelResponse.Serie.builder().nombre("Dictámenes").datos(List.of(
+                        dictamenRepository.contarPorEstado("POR_ELABORAR"),
+                        dictamenRepository.contarPorEstado("ELABORADO"),
+                        dictamenRepository.contarPorEstado("FIRMADO"),
+                        dictamenRepository.contarPorEstado("OBSERVADO"))).build()))
+                .colores(List.of("#8C1D2E", "#f59e0b", "#059669", "#e11d48"))
+                .build();
+    }
+
+    /** El avance del propio doctorando sobre las 8 etapas. */
+    private PanelResponse.Grafico gMiAvance(SeguimientoAlumnoItem yo) {
+        return PanelResponse.Grafico.builder()
+                .id("miavance").titulo("Mi avance").subtitulo("etapas completadas del proceso")
+                .tipo("radial")
+                .categorias(List.of("Etapa " + yo.getEtapaNumero() + " de " + EtapasProceso.TOTAL))
+                .series(List.of(PanelResponse.Serie.builder().nombre("Avance")
+                        .datos(List.of((long) yo.getAvancePct())).build()))
+                .colores(List.of("#8C1D2E"))
+                .build();
+    }
+
+    /** Los hitos del propio doctorando: qué lleva hecho y qué falta. */
+    private PanelResponse.Grafico gMisHitos(SeguimientoAlumnoItem yo) {
+        int etapa = yo.getEtapaNumero();
+        List<String> cats = new ArrayList<>();
+        List<Long> datos = new ArrayList<>();
+        for (int i = 1; i <= EtapasProceso.TOTAL; i++) {
+            cats.add(i + ". " + EtapasProceso.corto(i));
+            datos.add(i < etapa ? 100L : i == etapa ? Math.max(10, yo.getAvancePct()) : 0L);
+        }
+        return PanelResponse.Grafico.builder()
+                .id("mishitos").titulo("Mi recorrido").subtitulo("etapas superadas y la actual").ancho(true)
+                .tipo("barrasH")
+                .categorias(cats)
+                .series(List.of(PanelResponse.Serie.builder().nombre("Completado %").datos(datos).build()))
+                .colores(List.of("#8C1D2E"))
+                .build();
+    }
+
+    /** Notas que los revisores le pusieron al doctorando. */
+    private PanelResponse.Grafico gMisNotas(UUID proyectoId) {
+        var revs = revisorRepository.listarPorProyecto(proyectoId);
+        List<String> cats = new ArrayList<>();
+        List<Long> datos = new ArrayList<>();
+        for (var r : revs) {
+            if (r.getPuntajeTotal() == null) continue;
+            cats.add("Revisor " + (r.getOrden() != null ? r.getOrden() : cats.size() + 1));
+            datos.add((long) r.getPuntajeTotal());
+        }
+        if (cats.isEmpty()) return null;
+        return PanelResponse.Grafico.builder()
+                .id("misnotas").titulo("Mis evaluaciones").subtitulo("puntaje sobre 100 · aprueba con 65")
+                .tipo("barras")
+                .categorias(cats)
+                .series(List.of(PanelResponse.Serie.builder().nombre("Puntaje").datos(datos).build()))
+                .colores(List.of("#0369a1"))
+                .build();
+    }
+
+    /** Reparto por estado de una bandeja (asesor / revisor). */
+    private PanelResponse.Grafico gEstados(String id, String titulo, String sub,
+                                           Map<String, Long> conteos, List<String> colores) {
+        return PanelResponse.Grafico.builder()
+                .id(id).titulo(titulo).subtitulo(sub).tipo("dona")
+                .categorias(new ArrayList<>(conteos.keySet()))
+                .series(List.of(PanelResponse.Serie.builder().nombre("Proyectos")
+                        .datos(new ArrayList<>(conteos.values())).build()))
+                .colores(colores)
+                .build();
     }
 
     // ── Agregados (solo conteos) ─────────────────────────────────────────────

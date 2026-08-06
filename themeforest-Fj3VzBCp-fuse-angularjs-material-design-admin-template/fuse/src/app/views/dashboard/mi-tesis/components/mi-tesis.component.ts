@@ -33,7 +33,14 @@ import { Expediente } from '../../expediente/models/expediente.model';
              [ngClass]="rla.isActive
                ? 'border-[#8C1D2E] text-[#8C1D2E]'
                : 'border-transparent text-slate-500 hover:text-slate-700'">
-            <mat-icon [svgIcon]="t.icon" class="size-4" /> {{ t.label }}
+            <!-- El número dice en qué orden se recorre; el mapa (avance) no lleva. -->
+            @if (t.paso) {
+              <span class="grid place-items-center size-4 rounded text-[9px] font-extrabold transition"
+                    [ngClass]="rla.isActive ? 'bg-[#8C1D2E] text-white' : 'bg-slate-200 text-slate-500'">{{ t.paso }}</span>
+            } @else {
+              <mat-icon [svgIcon]="t.icon" class="size-4" />
+            }
+            {{ t.label }}
             @if (t.path === 'proyecto' && esNuevo()) {
               <span class="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#8C1D2E] text-white text-[9px] font-bold tracking-wide">
                 <span class="size-1.5 rounded-full bg-white/90 animate-ping"></span> NUEVO
@@ -91,15 +98,18 @@ export class MiTesisComponent implements OnInit {
   protected esNuevo = computed(() => this.habilitado() && !this.visto());
 
   /**
-   * Orden = cómo avanza el proceso: dónde estoy → qué escribo → cómo lo cierro → con quién.
-   * "Cierre y envío" (Turnitin, versión final y solicitud) solo aparece cuando el asesor emite
-   * su carta: hasta entonces no hay nada que enviar y dentro del editor solo estorbaba.
+   * Orden = <b>el orden en que se habilitan</b>, para que la barra se lea como el camino a
+   * recorrer: primero consigues asesor, luego redactas, al final cierras y envías. "Avance del
+   * proceso" va delante por ser el mapa (siempre disponible, sin número de paso).
+   *
+   * <p>Antes estaba "Mi asesoría" al final —después de "Cierre y envío"— cuando es lo primero
+   * que hace el doctorando: leído de izquierda a derecha, el proceso parecía ir al revés.</p>
    */
   protected tabs = computed(() => [
-    { path: 'avance', label: 'Avance del proceso', icon: 'route' },
-    ...(this.habilitado() ? [{ path: 'proyecto', label: 'Mi proyecto', icon: 'file-pen-line' }] : []),
-    ...(this.cierre() ? [{ path: 'cierre', label: 'Cierre y envío', icon: 'send' }] : []),
-    { path: 'asesoria', label: 'Mi asesoría', icon: 'handshake' },
+    { path: 'avance', label: 'Avance del proceso', icon: 'route', paso: 0 },
+    { path: 'asesoria', label: 'Mi asesoría', icon: 'handshake', paso: 1 },
+    ...(this.habilitado() ? [{ path: 'proyecto', label: 'Mi proyecto', icon: 'file-pen-line', paso: 2 }] : []),
+    ...(this.cierre() ? [{ path: 'cierre', label: 'Cierre y envío', icon: 'send', paso: 3 }] : []),
   ]);
 
   /** Qué falta para llegar a la Etapa 4, en las palabras del proceso. */

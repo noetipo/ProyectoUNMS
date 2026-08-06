@@ -38,6 +38,14 @@ public class PanelResponse {
     private String miEtapaTitulo;
     private Integer miAvancePct;
 
+    /**
+     * Gráficos del panel, ya decididos por rol en el servidor: el doctorando recibe los suyos
+     * (su avance, sus notas) y la gestión los institucionales. Así el permiso no depende de que
+     * la pantalla "oculte" algo, sino de que el dato ni siquiera viaje.
+     */
+    private List<Grafico> graficos;
+
+    /** Cifras del programa. Solo para roles de gestión/docencia; null para el doctorando. */
     private Agregados agregados;
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
@@ -70,6 +78,26 @@ public class PanelResponse {
         private List<Conteo> porEtapa;
         private List<Conteo> porLinea;
         private List<Conteo> porAnio;  // registros de tesis por año
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class Grafico {
+        private String id;
+        private String titulo;
+        private String subtitulo;
+        /** barras | barrasH | dona | radial | area */
+        private String tipo;
+        private List<String> categorias;
+        private List<Serie> series;
+        private List<String> colores;
+        /** Ocupa las dos columnas de la rejilla (para el embudo, que es largo). */
+        private boolean ancho;
+    }
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class Serie {
+        private String nombre;
+        private List<Long> datos;
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
