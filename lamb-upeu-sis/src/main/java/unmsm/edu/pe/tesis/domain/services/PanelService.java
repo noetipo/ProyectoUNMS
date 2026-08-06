@@ -6,7 +6,4 @@ import unmsm.edu.pe.tesis.application.dto.PanelResponse;
 public interface PanelService {
 
     PanelResponse panel();
-
-    /** El mismo panel en Excel (cifras del programa + lo pendiente de quien lo descarga). */
-    byte[] reporteExcel();
 }

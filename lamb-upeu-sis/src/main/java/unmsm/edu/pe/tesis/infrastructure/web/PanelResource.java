@@ -34,18 +34,6 @@ public class PanelResource {
         return Response.ok(ApiResponse.success("Panel", service.panel())).build();
     }
 
-    @GET
-    @Path("/reporte")
-    @Produces("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    @Operation(summary = "Reporte del panel en Excel")
-    public Response reporte() {
-        autenticado();
-        byte[] xlsx = service.reporteExcel();
-        return Response.ok(xlsx)
-                .header("Content-Disposition", "attachment; filename=\"panel-titulacion.xlsx\"")
-                .build();
-    }
-
     /** No hay filtro por rol: basta con estar autenticado (no se expone ningún dato personal ajeno). */
     private void autenticado() {
         if (securityUtils.getCurrentUserIdAsUUID() == null) {

@@ -12,9 +12,4 @@ export class PanelService {
   panel$(): Observable<any> {
     return this._http.get<any>(this.base);
   }
-
-  /** El mismo panel en Excel (por HttpClient: un <a href> no manda el JWT). */
-  reporte$(): Observable<Blob> {
-    return this._http.get(`${this.base}/reporte`, { responseType: 'blob' });
-  }
 }

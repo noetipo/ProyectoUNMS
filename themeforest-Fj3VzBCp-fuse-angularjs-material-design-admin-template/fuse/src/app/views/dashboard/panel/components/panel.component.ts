@@ -5,7 +5,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { Router } from '@angular/router';
 import { ChartComponent, ApexChart } from 'ng-apexcharts';
 import { NotificationService } from '@/app/shared/notification/notification.service';
-import { descargarBlob } from '@/app/views/dashboard/reportes/download.util';
 import { PanelService } from '../services/panel.service';
 
 /**
@@ -40,10 +39,6 @@ import { PanelService } from '../services/panel.service';
               <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/15 text-white/90 text-[10.5px] font-semibold">
                 <mat-icon svgIcon="graduation-cap" class="size-3" /> {{ d.rolLabel }}
               </span>
-              <button mat-flat-button class="!bg-white !text-[#8C1D2E] !h-8 !text-[11.5px] !font-bold shrink-0 ml-auto"
-                      [disabled]="descargando()" (click)="descargarReporte()">
-                <mat-icon svgIcon="download" class="size-3.5 mr-1" /> Reporte
-              </button>
             </div>
           </header>
 
@@ -209,7 +204,6 @@ export class PanelComponent implements OnInit {
 
   protected p = signal<any | null>(null);
   protected cargando = signal(true);
-  protected descargando = signal(false);
 
   protected readonly paleta = ['#8C1D2E', '#c23a52', '#0369a1', '#0891b2', '#059669', '#b45309'];
 
@@ -299,14 +293,6 @@ export class PanelComponent implements OnInit {
       if (k) params[k] = v ?? '';
     });
     this._router.navigate([path], Object.keys(params).length ? { queryParams: params } : {});
-  }
-
-  descargarReporte(): void {
-    this.descargando.set(true);
-    this._svc.reporte$().subscribe({
-      next: (blob) => { descargarBlob(blob, 'panel-titulacion.xlsx'); this.descargando.set(false); },
-      error: () => { this.descargando.set(false); this._toast.error('No se pudo generar el reporte'); },
-    });
   }
 
   /** Ancho relativo de la barra de una línea de investigación. */

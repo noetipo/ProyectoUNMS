@@ -16,7 +16,6 @@ import unmsm.edu.pe.tesis.application.dto.SeguimientoAlumnoItem;
 import unmsm.edu.pe.tesis.application.util.EtapasProceso;
 import unmsm.edu.pe.tesis.domain.services.PanelService;
 import unmsm.edu.pe.tesis.domain.services.SeguimientoService;
-import unmsm.edu.pe.tesis.infrastructure.export.PanelExcel;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -82,12 +81,6 @@ public class PanelServiceImpl implements PanelService {
                             gLineas(alumnos)));
         }
         return b.build();
-    }
-
-    @Override
-    @Transactional
-    public byte[] reporteExcel() {
-        return PanelExcel.generar(panel());
     }
 
     // ── Bloques personales ───────────────────────────────────────────────────
