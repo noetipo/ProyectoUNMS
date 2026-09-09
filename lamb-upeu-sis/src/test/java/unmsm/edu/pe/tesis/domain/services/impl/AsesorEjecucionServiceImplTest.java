@@ -46,6 +46,7 @@ class AsesorEjecucionServiceImplTest {
     @Mock ProyectoAvanceRepository avanceRepository;
     @Mock DocumentoTesisRepository documentoTesisRepository;
     @Mock ProyectoEditorAssembler assembler;
+    @Mock AsesorDesignadoService asesorDesignado;
 
     @InjectMocks AsesorEjecucionServiceImpl service;
 
@@ -67,6 +68,9 @@ class AsesorEjecucionServiceImplTest {
 
         proyecto = ProyectoTesis.builder().id(PROY).tesisId(TESIS).asesorId(ASESOR).defensaProgramada(true).build();
         when(proyectoRepository.buscarPorTesisId(TESIS)).thenReturn(Optional.of(proyecto));
+        // La designación vigente vive en `asesorias`; en las pruebas la copia en `asesorId` ya
+        // refleja lo que sincronizar() devolvería, así que basta con leerla del proyecto.
+        lenient().when(asesorDesignado.sincronizar(any())).thenAnswer(i -> ((ProyectoTesis) i.getArgument(0)).getAsesorId());
     }
 
     private void planEjecutado(int hechas, int total) {

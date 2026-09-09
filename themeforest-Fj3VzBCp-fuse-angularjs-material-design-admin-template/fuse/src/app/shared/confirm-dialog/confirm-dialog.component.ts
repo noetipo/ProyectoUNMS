@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -10,6 +10,12 @@ export interface ConfirmDialogData {
   type?:    ConfirmDialogType;
   title?:   string;
   message?: string;
+  /** Lo que va a ocurrir al confirmar, en viñetas: quien decide sabe qué desencadena. */
+  details?: string[];
+  /** Casilla que hay que marcar antes de poder confirmar. Solo para pasos sin vuelta atrás. */
+  acknowledge?: string;
+  /** Texto del botón de confirmación cuando el genérico ("Confirmar") no dice lo suficiente. */
+  confirmLabel?: string;
 }
 
 interface DialogConfig {
@@ -70,8 +76,21 @@ const DEFAULT_MESSAGES: Record<ConfirmDialogType, string> = {
         <div class="pt-0.5">
           <h2 class="confirm-dialog__title">{{ data.title ?? defaultTitle }}</h2>
           <p class="confirm-dialog__message">{{ data.message ?? defaultMessage }}</p>
+
+          @if (data.details?.length) {
+            <ul class="mt-2 list-disc pl-4 text-[12.5px] leading-relaxed text-slate-600">
+              @for (d of data.details; track d) { <li>{{ d }}</li> }
+            </ul>
+          }
         </div>
       </div>
+
+      @if (data.acknowledge) {
+        <label class="mb-4 -mt-3 flex cursor-pointer items-center gap-2 text-[12.5px] text-slate-600">
+          <input type="checkbox" class="size-3.5 accent-[#8C1D2E]" [checked]="aceptado()" (change)="alternar()" />
+          {{ data.acknowledge }}
+        </label>
+      }
 
       <div class="flex items-center justify-end gap-2">
         <button mat-button class="!text-slate-500 !text-sm !h-9" (click)="onCancel()">
@@ -81,9 +100,10 @@ const DEFAULT_MESSAGES: Record<ConfirmDialogType, string> = {
           mat-flat-button
           class="!text-sm !h-9 !rounded-lg !px-4 !font-medium transition-colors"
           [class]="cfg.btnClass"
+          [disabled]="!!data.acknowledge && !aceptado()"
           (click)="onConfirm()"
         >
-          {{ cfg.btnLabel }}
+          {{ data.confirmLabel ?? cfg.btnLabel }}
         </button>
       </div>
 
@@ -94,6 +114,11 @@ export class ConfirmDialogComponent {
   protected readonly cfg: DialogConfig;
   protected readonly defaultTitle:   string;
   protected readonly defaultMessage: string;
+
+  /** Casilla de "entiendo": mientras esté sin marcar, el botón de confirmar queda inhabilitado. */
+  protected readonly aceptado = signal(false);
+
+  protected alternar(): void { this.aceptado.update((v) => !v); }
 
   constructor(
     public dialogRef: MatDialogRef<ConfirmDialogComponent>,

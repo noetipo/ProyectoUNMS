@@ -272,6 +272,14 @@ public class MiProyectoResource {
         return ok("Respuesta enviada al jurado", null);
     }
 
+    @POST @Path("/sustentacion/solicitar")
+    @Operation(summary = "El estudiante solicita su Jurado de Sustentación (Etapa 8)")
+    public Response solicitarSustentacion() {
+        guard();
+        service.solicitarSustentacion();
+        return ok("Jurado de Sustentación solicitado", null);
+    }
+
     @POST @Path("/turnitin")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Operation(summary = "Subir el informe de similitud de Turnitin (PDF) + porcentaje")

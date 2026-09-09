@@ -7,6 +7,7 @@ import jakarta.persistence.Query;
 import unmsm.edu.pe.tesis.domain.entities.Tesis;
 import unmsm.edu.pe.tesis.domain.repositories.TesisRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,6 +26,11 @@ public class TesisRepositoryImpl implements TesisRepository, PanacheRepositoryBa
     @Override
     public Optional<Tesis> buscarPorId(UUID id) {
         return findByIdOptional(id);
+    }
+
+    @Override
+    public List<Tesis> listarTodas() {
+        return listAll();
     }
 
     @Override

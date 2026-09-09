@@ -90,16 +90,16 @@ quarkus:
 
   # ✅ CONFIGURACIÓN DE MAILER PARA QUARKUS
   mailer:
-    from: noe.tipo@gmail.com
+    from: unmsm.posgradosecretaria@gmail.com
     host: smtp.gmail.com
     port: 587
     start-tls: REQUIRED
-    username: noe.tipo@gmail.com
-    password: "zlzn usht falm kyis"
+    username: unmsm.posgradosecretaria@gmail.com
+    password: "wtoy zkhp gvjo csae"
     mock: false
     auth-methods: DIGEST-MD5 CRAM-SHA256 CRAM-SHA1 CRAM-MD5 PLAIN LOGIN
     trust-all: false
-    bounce-address: noe.tipo@gmail.com
+    bounce-address: unmsm.posgradosecretaria@gmail.com
     login:
       timeout: 10s
     pool-cleaning-period: 60s
@@ -146,6 +146,13 @@ app:
       base-path: ${user.home}/uploads/lamb-unmsm
   # Herramientas de demo (seed/reset del proyecto): true en dev, false en prod
   demo-tools-enabled: true
+  # Correo por notificación del alumno (ver NotificacionEmailScheduler). email-override: si se
+  # completa, TODOS los correos de TODOS los alumnos se mandan a esa dirección en vez de la real
+  # (para probar sin depender de los correos de las cuentas semilla) — quitar antes de producción.
+  # Sin valor por defecto: una propiedad String vacía hace fallar el arranque de Quarkus (SRCFG00040).
+  notificaciones:
+    email-habilitado: false
+    email-intervalo: 2m
 
 # ========================================
 # 🔎 AUTOCOMPLETAR REFERENCIAS POR DOI (CrossRef + fallback doi.org)
@@ -181,7 +188,8 @@ storage:
 "%dev":
   quarkus:
     mailer:
-      mock: true
+      # Real (no mock) para poder probar los correos de notificación contra una bandeja de verdad.
+      mock: false
       log-rejected-recipients: true
     log:
       category:
@@ -194,6 +202,11 @@ storage:
       force: false  # Cambiar a true para actualizar datos existentes
 
       dev-users: true  # SOLO DEV: crea usuarios de prueba con contraseña conocida
+    # TEMPORAL: mientras se prueba, todo correo (alumno, asesor, revisor) llega a este buzón en
+    # vez de al real. Quitar email-override cuando se quiera que cada quien reciba en su propio correo.
+    notificaciones:
+      email-habilitado: true
+      email-override: "leydymayumy@gmail.com"
 
 # ========================================
 # PERFILES - TEST

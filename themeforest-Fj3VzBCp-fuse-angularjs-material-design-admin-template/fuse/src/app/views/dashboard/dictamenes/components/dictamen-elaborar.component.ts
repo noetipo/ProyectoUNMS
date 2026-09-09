@@ -367,11 +367,23 @@ export class DictamenElaborarComponent implements OnInit {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    this.subiendo.set(true); this.err.set(null);
-    this._svc.subirFirmado$(this.tesisId, file).subscribe({
-      next: () => { this.subiendo.set(false); this.msg.set('Dictamen firmado subido.'); this.cargar(); },
-      error: (e) => { this.subiendo.set(false); this.err.set(e?.error?.message ?? 'No se pudo subir el archivo'); },
-    });
+
+    const yaSubido = !!this.d()?.dictamenFirmadoSubido;
+    // Subirlo cierra el trámite del estudiante: se confirma en vez de subirlo apenas se elige.
+    this._confirm.confirmSave({
+      title: yaSubido ? 'Reemplazar el dictamen firmado' : 'Subir el dictamen firmado',
+      message: `Se subirá «${file.name}». Al confirmar:`,
+      details: yaSubido
+        ? ['reemplaza el archivo que habías subido antes', 'el estudiante lo verá firmado de inmediato']
+        : ['el dictamen queda emitido y archivado', 'el estudiante recibe el aviso y puede descargarlo desde Mi asesoría'],
+      confirmLabel: yaSubido ? 'Reemplazar' : 'Subir dictamen',
+    }).then(() => {
+      this.subiendo.set(true); this.err.set(null);
+      this._svc.subirFirmado$(this.tesisId, file).subscribe({
+        next: () => { this.subiendo.set(false); this.msg.set('Dictamen firmado subido.'); this.cargar(); },
+        error: (e) => { this.subiendo.set(false); this.err.set(e?.error?.message ?? 'No se pudo subir el archivo'); },
+      });
+    }).catch(() => {});
   }
 
   observar(): void {

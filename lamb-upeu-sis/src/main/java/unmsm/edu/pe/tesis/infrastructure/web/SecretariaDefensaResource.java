@@ -111,23 +111,15 @@ public class SecretariaDefensaResource {
 
     @GET
     @Path("/{tesisId}/defensa")
-    @Operation(summary = "Info de la defensa (programada, fecha/hora/lugar, jurado)")
+    @Operation(summary = "Info de la defensa: programada, fecha/hora/lugar/modalidad y quiénes la evalúan")
     public Response defensa(@PathParam("tesisId") UUID tesisId) {
         guard();
         return Response.ok(ApiResponse.success("Defensa", service.defensa(tesisId))).build();
     }
 
-    @GET
-    @Path("/{tesisId}/docentes-defensa")
-    @Operation(summary = "Docentes de la línea de la tesis, seleccionables como Jurado Examinador")
-    public Response docentesDefensa(@PathParam("tesisId") UUID tesisId) {
-        guard();
-        return Response.ok(ApiResponse.success("Docentes", service.docentesDefensa(tesisId))).build();
-    }
-
     @POST
     @Path("/{tesisId}/defensa")
-    @Operation(summary = "Programar la defensa: Jurado Examinador + fecha/hora/lugar")
+    @Operation(summary = "Programar la defensa: modalidad, fecha, hora y aula/enlace")
     public Response programarDefensa(@PathParam("tesisId") UUID tesisId,
                                      unmsm.edu.pe.tesis.application.dto.ProgramarDefensaRequest req) {
         guard();

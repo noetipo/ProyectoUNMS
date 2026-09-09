@@ -23,4 +23,6 @@ public class InformeEvaluacionResponse {
     private String respuestaEstudiante;
     private boolean cerrada;
     private int puntajeMaximo;
+    /** Soy el único miembro que falta: mi conformidad da por revisado el informe final. */
+    private boolean ultimoPendiente;
 }

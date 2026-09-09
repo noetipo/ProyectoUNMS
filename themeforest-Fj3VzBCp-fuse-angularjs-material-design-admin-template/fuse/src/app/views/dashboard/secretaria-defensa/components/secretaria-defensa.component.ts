@@ -3,7 +3,7 @@ import { Component, ElementRef, OnInit, ViewChild, inject, signal } from '@angul
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ConfirmDialogService } from '@/app/shared/confirm-dialog/confirm-dialog.service';
 import { NotificationService } from '@/app/shared/notification/notification.service';
 import { SecretariaDefensaService } from '../services/secretaria-defensa.service';
@@ -154,6 +154,13 @@ import { ProgramarDefensaDialogComponent } from './programar-defensa-dialog.comp
                           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-100 text-emerald-700">
                             <mat-icon svgIcon="calendar-check" class="size-3.5" /> Defensa: {{ r.fechaDefensa | date:'dd/MM/yyyy' }}@if (r.horaDefensa) { · {{ r.horaDefensa }} }
                           </span>
+                          <!-- Después de programar, el siguiente paso es otra pantalla (Cierre del
+                               proyecto): sin este enlace, había que saber de memoria que existe y
+                               volver a buscar ahí a la misma persona. -->
+                          <button mat-stroked-button class="!h-7 !text-[11px] !text-[#8C1D2E] !border-[#8C1D2E]/30"
+                                  (click)="irACierre(r.tesisId)">
+                            Siguiente: Cierre del proyecto <mat-icon svgIcon="arrow-right" class="size-3.5 ml-1" />
+                          </button>
                         } @else if (r.revisoresConformes) {
                           <button mat-stroked-button class="!h-8 !text-xs !text-[#8C1D2E] !border-[#8C1D2E]/30" (click)="programarDefensa(r)">
                             <mat-icon svgIcon="calendar-check" class="size-3.5 mr-1" /> Programar defensa
@@ -219,6 +226,7 @@ export class SecretariaDefensaComponent implements OnInit {
   @ViewChild('docxHost') docxHost?: ElementRef<HTMLElement>;
 
   private _route = inject(ActivatedRoute);
+  private _router = inject(Router);
 
   protected rows = signal<any[]>([]);
   protected rubricas = signal<any[]>([]);
@@ -277,9 +285,24 @@ export class SecretariaDefensaComponent implements OnInit {
   /** Abre el modal para programar la defensa (Jurado Examinador + fecha/hora/lugar). */
   programarDefensa(r: any): void {
     this._dialog.open(ProgramarDefensaDialogComponent, {
-      width: '540px', maxWidth: '92vw', autoFocus: false,
-      data: { tesisId: r.tesisId, estudiante: (r.estudianteApellidos + ', ' + r.estudianteNombres).trim(), titulo: r.tituloTesis },
-    }).afterClosed().subscribe((ok: boolean) => { if (ok) this.cargarRubricas(); });
+      width: '480px', maxWidth: '92vw', autoFocus: false,
+      data: {
+        tesisId: r.tesisId,
+        estudiante: (r.estudianteApellidos + ', ' + r.estudianteNombres).trim(),
+        titulo: r.tituloTesis,
+        revisores: r.revisores ?? [],
+      },
+    }).afterClosed().subscribe((ok: boolean) => {
+      if (!ok) return;
+      // Recién programada, se lleva directo al siguiente paso: sin esto, tocaba adivinar que
+      // el trámite sigue en otra pantalla (Cierre del proyecto) y volver a buscar ahí a la persona.
+      this.irACierre(r.tesisId);
+    });
+  }
+
+  /** Siguiente paso tras programar la defensa: recepción de rúbricas, resultado y dictamen. */
+  irACierre(tesisId: string): void {
+    this._router.navigate(['/admin/cierre-proyecto', tesisId]);
   }
 
   /** ¿La evaluación está habilitada? (o el expediente trae su Word propio, modo anterior) */

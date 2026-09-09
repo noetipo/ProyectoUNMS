@@ -18,6 +18,9 @@ public class DefensaInfo {
     private LocalDate fecha;
     private String hora;
     private String lugar;
+    private String modalidad;
+    private String modalidadLabel;
+    private String enlace;
     private String dictamenNumero;
     private List<JuradoItem> jurado;
 }

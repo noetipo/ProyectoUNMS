@@ -664,7 +664,7 @@ export class PersonaFormComponent implements OnInit {
         const esPdf = tipo.includes('pdf') || nombre.toLowerCase().endsWith('.pdf');
         const url = URL.createObjectURL(new Blob([blob], { type: tipo || 'application/octet-stream' }));
         this._dialog.open(DocumentoPreviewDialogComponent, {
-          panelClass: ['dialog-anim'], autoFocus: false, maxWidth: '92vw',
+          panelClass: ['dialog-anim'], autoFocus: false, maxWidth: '96vw', maxHeight: '92vh',
           data: { nombre, url, esPdf, mime: tipo },
         }).afterClosed().subscribe(() => setTimeout(() => URL.revokeObjectURL(url), 1000));
       },

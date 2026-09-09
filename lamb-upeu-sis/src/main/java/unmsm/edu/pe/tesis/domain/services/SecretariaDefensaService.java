@@ -33,12 +33,13 @@ public interface SecretariaDefensaService {
 
     // ── Programación de la defensa (la realiza la Secretaría) ──
 
-    /** Info de la defensa: si está programada, fecha/hora/lugar, dictamen y jurado. */
+    /**
+     * Info de la defensa: si está programada, fecha/hora/lugar/modalidad, dictamen, y quiénes la
+     * evalúan (los mismos dos revisores del proyecto; el proceso no contempla un jurado aparte
+     * para este paso — eso es de la Sustentación final, Etapa 8).
+     */
     unmsm.edu.pe.tesis.application.dto.DefensaInfo defensa(UUID tesisId);
 
-    /** Docentes de la línea de la tesis, seleccionables como Jurado Examinador. */
-    List<unmsm.edu.pe.tesis.application.dto.DocenteOpcion> docentesDefensa(UUID tesisId);
-
-    /** Programa la defensa: Jurado Examinador (presidente + 2 miembros + asesor) + fecha/hora/lugar. */
+    /** Programa la defensa: modalidad, fecha, hora y aula/enlace (según corresponda). */
     void programarDefensa(UUID tesisId, unmsm.edu.pe.tesis.application.dto.ProgramarDefensaRequest req);
 }

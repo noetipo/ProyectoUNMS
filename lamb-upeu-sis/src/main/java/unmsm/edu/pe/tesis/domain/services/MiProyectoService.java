@@ -86,6 +86,9 @@ public interface MiProyectoService {
     /** El estudiante responde (levanta) las observaciones de un miembro del Jurado Informante (Etapa 7). */
     void responderJuradoInforme(UUID revisorId, String respuesta);
 
+    /** El estudiante solicita su Jurado de Sustentación, ya con el Dictamen de Expedito (Etapa 8). */
+    void solicitarSustentacion();
+
     /** Sube el expediente y genera la solicitud de aprobación (fin de la Etapa 4). */
     void solicitarAprobacion();
 

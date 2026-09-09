@@ -50,6 +50,7 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Inject ProyectoReferenciaRepository referenciaRepository;
     @Inject ProyectoRevisorRepository revisorRepository;
     @Inject unmsm.edu.pe.tesis.domain.repositories.InformeRevisorRepository informeRevisorRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.DictamenExpeditoRepository dictamenExpeditoRepository;
     @Inject DocumentoTesisRepository documentoTesisRepository;
     @Inject AlmacenamientoArchivos almacenamiento;
     @Inject ProyectoEditorAssembler assembler;
@@ -123,6 +124,14 @@ public class MiProyectoServiceImpl implements MiProyectoService {
         ProyectoTesis p = proyectoDe(tesis);
         String v = valor != null ? valor : "";
 
+        boolean esTituloOResumen = "titulo".equals(campo) || "resumen".equals(campo);
+        if (!esTituloOResumen && !ProyectoDefinicion.esCampoValido(campo)) {
+            throw new ValidationException("Campo de proyecto inválido: " + campo);
+        }
+        if (!campoEditable(p, campo)) {
+            throw new BusinessException("El proyecto está en revisión; no puedes editar este contenido");
+        }
+
         if ("titulo".equals(campo)) {
             tesis.setTitulo(v);
             tesisRepository.save(tesis);
@@ -130,9 +139,6 @@ public class MiProyectoServiceImpl implements MiProyectoService {
             tesis.setResumen(v);
             tesisRepository.save(tesis);
         } else {
-            if (!ProyectoDefinicion.esCampoValido(campo)) {
-                throw new ValidationException("Campo de proyecto inválido: " + campo);
-            }
             ProyectoCampo c = campoRepository.buscarPorProyectoYClave(p.getId(), campo)
                     .orElseGet(() -> ProyectoCampo.builder().proyectoId(p.getId()).clave(campo).build());
             c.setValor(v);
@@ -189,6 +195,7 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Transactional
     public ObjetivoItem agregarObjetivo(ObjetivoRequest req) {
         ProyectoTesis p = proyectoDe(tesisActiva(estudianteActual()));
+        verificarProyectoEditable(p);
         ProyectoObjetivo o = ProyectoObjetivo.builder()
                 .proyectoId(p.getId())
                 .texto(req.getTexto())
@@ -202,6 +209,7 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Transactional
     public void actualizarObjetivo(UUID id, ObjetivoRequest req) {
         ProyectoTesis p = proyectoDe(tesisActiva(estudianteActual()));
+        verificarProyectoEditable(p);
         ProyectoObjetivo o = objetivoRepository.buscarPorId(id)
                 .orElseThrow(() -> new NotFoundException("Objetivo no encontrado"));
         verificarPertenece(o.getProyectoId(), p.getId());
@@ -214,6 +222,7 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Transactional
     public void eliminarObjetivo(UUID id) {
         ProyectoTesis p = proyectoDe(tesisActiva(estudianteActual()));
+        verificarProyectoEditable(p);
         ProyectoObjetivo o = objetivoRepository.buscarPorId(id)
                 .orElseThrow(() -> new NotFoundException("Objetivo no encontrado"));
         verificarPertenece(o.getProyectoId(), p.getId());
@@ -311,6 +320,7 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Transactional
     public ReferenciaItem agregarReferencia(ReferenciaRequest req) {
         ProyectoTesis p = proyectoDe(tesisActiva(estudianteActual()));
+        verificarProyectoEditable(p);
         ProyectoReferencia r = ProyectoReferencia.builder()
                 .proyectoId(p.getId())
                 .orden(req.getOrden() != null ? req.getOrden() : referenciaRepository.listarPorProyecto(p.getId()).size())
@@ -326,6 +336,7 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Transactional
     public void actualizarReferencia(UUID id, ReferenciaRequest req) {
         ProyectoTesis p = proyectoDe(tesisActiva(estudianteActual()));
+        verificarProyectoEditable(p);
         ProyectoReferencia r = referenciaRepository.buscarPorId(id)
                 .orElseThrow(() -> new NotFoundException("Referencia no encontrada"));
         verificarPertenece(r.getProyectoId(), p.getId());
@@ -338,6 +349,7 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Transactional
     public void eliminarReferencia(UUID id) {
         ProyectoTesis p = proyectoDe(tesisActiva(estudianteActual()));
+        verificarProyectoEditable(p);
         ProyectoReferencia r = referenciaRepository.buscarPorId(id)
                 .orElseThrow(() -> new NotFoundException("Referencia no encontrada"));
         verificarPertenece(r.getProyectoId(), p.getId());
@@ -610,15 +622,17 @@ public class MiProyectoServiceImpl implements MiProyectoService {
         if (!Boolean.TRUE.equals(p.getDefensaProgramada())) {
             throw new BusinessException("El informe final se sube durante la ejecución (tras aprobar el proyecto)");
         }
+        // El envío es de una sola vez: el estudiante ya lo confirma explícitamente en pantalla
+        // antes de subirlo, así que no hay "reemplazar" después — evita que el archivo cambie en
+        // silencio una vez que el asesor ya lo está revisando (o ya lo aprobó).
+        var existente = documentoTesisRepository.buscarPorTesisYTipo(tesis.getId(), T_INFORME_FINAL);
+        if (existente.isPresent()) {
+            throw new BusinessException("Ya enviaste tu informe final; no puede reemplazarse");
+        }
         validarArchivo(contenido, contentType);
 
-        var existente = documentoTesisRepository.buscarPorTesisYTipo(tesis.getId(), T_INFORME_FINAL);
-        if (existente.isPresent() && existente.get().getStorageKey() != null) {
-            almacenamiento.eliminar(existente.get().getStorageKey());
-        }
         String key = almacenamiento.guardar(contenido, nombreOriginal, contentType);
-        DocumentoTesis doc = existente.orElseGet(
-                () -> DocumentoTesis.builder().tesisId(tesis.getId()).tipo(T_INFORME_FINAL).build());
+        DocumentoTesis doc = DocumentoTesis.builder().tesisId(tesis.getId()).tipo(T_INFORME_FINAL).build();
         doc.setNombreOriginal(nombreOriginal);
         doc.setStorageKey(key);
         doc.setContentType(contentType);
@@ -701,7 +715,8 @@ public class MiProyectoServiceImpl implements MiProyectoService {
     @Transactional
     public void solicitarJuradoInformante() {
         Estudiante est = estudianteActual();
-        ProyectoTesis p = proyectoDe(tesisActiva(est));
+        Tesis tesis = tesisActiva(est);
+        ProyectoTesis p = proyectoDe(tesis);
         if (Boolean.TRUE.equals(p.getJuradoInformanteSolicitado())) {
             throw new BusinessException("Ya solicitaste el Jurado Informante");
         }
@@ -713,6 +728,30 @@ public class MiProyectoServiceImpl implements MiProyectoService {
         }
         p.setJuradoInformanteSolicitado(true);
         p.setFechaJuradoInformante(LocalDate.now());
+        proyectoRepository.save(p);
+        // Con la solicitud del Jurado Informante empieza la Etapa 7; antes de esto el estado de la
+        // tesis se quedaba pegado en PROYECTO_APROBADO todo lo que dure la ejecución.
+        if (tesis.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoTesis.PROYECTO_APROBADO) {
+            tesis.setEstado(unmsm.edu.pe.tesis.domain.enums.EstadoTesis.EN_DESARROLLO);
+            tesisRepository.save(tesis);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void solicitarSustentacion() {
+        Estudiante est = estudianteActual();
+        Tesis tesis = tesisActiva(est);
+        ProyectoTesis p = proyectoDe(tesis);
+        if (Boolean.TRUE.equals(p.getSustentacionSolicitada())) {
+            throw new BusinessException("Ya solicitaste tu Jurado de Sustentación");
+        }
+        var expedito = dictamenExpeditoRepository.buscarPorTesisId(tesis.getId()).orElse(null);
+        if (expedito == null || expedito.getEstado() != unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.FIRMADO) {
+            throw new BusinessException("Aún no tienes el Dictamen de Expedito; espera a que Secretaría lo emita");
+        }
+        p.setSustentacionSolicitada(true);
+        p.setFechaSolicitudSustentacion(LocalDate.now());
         proyectoRepository.save(p);
     }
 
@@ -850,9 +889,8 @@ public class MiProyectoServiceImpl implements MiProyectoService {
 
         p.setFinanciamiento("Autofinanciado");
         p.setPlanPublicado(true);
-        p.setListoRevision(true);
-        p.setFechaListoRevision(LocalDate.now());
-        p.setEstado(EstadoProyecto.EN_REVISION);
+        // Rellena el contenido, pero no envía a revisión: eso lo decide el estudiante con su
+        // propio clic en "Enviar a revisión", igual que en el flujo real.
         proyectoRepository.save(p);
     }
 
@@ -892,6 +930,31 @@ public class MiProyectoServiceImpl implements MiProyectoService {
         if (Boolean.TRUE.equals(p.getPlanPublicado())) {
             throw new BusinessException("El plan de actividades ya fue publicado; solo puedes actualizar el estado de cada actividad");
         }
+    }
+
+    /**
+     * El proyecto solo se edita libremente mientras está en borrador. Una vez enviado a revisión
+     * (o resuelto), el contenido general queda congelado: lo único que se reabre son los ítems
+     * puntuales que el asesor deja OBSERVADO, mediante {@link #campoEditable}.
+     */
+    private boolean proyectoEditableEnGeneral(ProyectoTesis p) {
+        return p.getEstado() == EstadoProyecto.EN_ELABORACION;
+    }
+
+    private void verificarProyectoEditable(ProyectoTesis p) {
+        if (!proyectoEditableEnGeneral(p)) {
+            throw new BusinessException("El proyecto está en revisión; no puedes editar este contenido");
+        }
+    }
+
+    /** Un campo de texto se puede guardar en borrador libre, o si el asesor lo dejó observado. */
+    private boolean campoEditable(ProyectoTesis p, String campo) {
+        if (proyectoEditableEnGeneral(p)) {
+            return true;
+        }
+        return revisionRepository.buscarPorProyectoYCampo(p.getId(), campo)
+                .map(r -> r.getEstado() == EstadoItemRevision.OBSERVADO || r.getEstado() == EstadoItemRevision.EN_CORRECCION)
+                .orElse(false);
     }
 
     private ProyectoTesis proyectoDe(Tesis tesis) {

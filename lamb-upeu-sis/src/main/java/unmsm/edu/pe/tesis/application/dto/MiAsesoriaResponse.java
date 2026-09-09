@@ -59,6 +59,11 @@ public class MiAsesoriaResponse {
     // ── Firmados subidos por el estudiante + dictamen ──
     private boolean solicitudFirmadaSubida;
     private boolean cartaFirmadaSubida;
+    /**
+     * Ambos firmados subidos y a la espera de que el estudiante confirme el envío a Secretaría
+     * (aún no hay dictamen, o quedó OBSERVADO y ya volvió a subir lo corregido).
+     */
+    private boolean listoParaEnviar;
     private String dictamenEstado;       // null | POR_ELABORAR | ELABORADO | FIRMADO | OBSERVADO
     private boolean dictamenEmitido;     // true cuando la secretaría subió el firmado
     private String dictamenNumero;

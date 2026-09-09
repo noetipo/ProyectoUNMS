@@ -15,13 +15,10 @@ import unmsm.edu.pe.shared.response.PageResponse;
 import unmsm.edu.pe.tesis.application.dto.*;
 import unmsm.edu.pe.tesis.domain.entities.Asesoria;
 import unmsm.edu.pe.tesis.domain.entities.Tesis;
-import unmsm.edu.pe.tesis.domain.entities.ProyectoJurado;
 import unmsm.edu.pe.tesis.domain.entities.ProyectoRevisor;
 import unmsm.edu.pe.tesis.domain.entities.ProyectoTesis;
 import unmsm.edu.pe.tesis.domain.enums.EstadoRevisor;
-import unmsm.edu.pe.tesis.domain.enums.RolJurado;
 import unmsm.edu.pe.tesis.domain.repositories.AsesoriaRepository;
-import unmsm.edu.pe.tesis.domain.repositories.ProyectoJuradoRepository;
 import unmsm.edu.pe.tesis.domain.repositories.ProyectoRevisorRepository;
 import unmsm.edu.pe.tesis.domain.repositories.ProyectoTesisRepository;
 import unmsm.edu.pe.tesis.domain.repositories.TesisRepository;
@@ -41,10 +38,11 @@ public class CoordinadorProyectoServiceImpl implements CoordinadorProyectoServic
     @Inject TesisRepository tesisRepository;
     @Inject ProyectoRevisorRepository revisorRepository;
     @Inject AsesoriaRepository asesoriaRepository;
-    @Inject ProyectoJuradoRepository juradoRepository;
     @Inject unmsm.edu.pe.tesis.domain.repositories.InformeRevisorRepository informeRevisorRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.JuradoSustentacionRepository juradoSustentacionRepository;
     @Inject DocenteRepository docenteRepository;
     @Inject PersonaRepository personaRepository;
+    @Inject AsesorRolService asesorRolService;
 
     @Override
     @Transactional
@@ -120,6 +118,8 @@ public class CoordinadorProyectoServiceImpl implements CoordinadorProyectoServic
             revisorRepository.save(ProyectoRevisor.builder()
                     .proyectoId(p.getId()).docenteId(docenteId).orden(orden++)
                     .estado(EstadoRevisor.DESIGNADO).build());
+            // Igual que con el asesor: el docente pasa a ser revisor recién cuando se le designa.
+            asesorRolService.otorgarRolRevisor(docenteId);
         }
     }
 
@@ -128,77 +128,30 @@ public class CoordinadorProyectoServiceImpl implements CoordinadorProyectoServic
     public DefensaInfo defensa(UUID tesisId) {
         guard();
         ProyectoTesis p = proyecto(tesisId);
-        List<JuradoItem> jurado = juradoRepository.listarPorProyecto(p.getId()).stream()
-                .map(j -> {
-                    Persona pe = personaRepository.buscarPorId(j.getDocenteId()).orElse(null);
+        // Quiénes evalúan la defensa: los mismos dos revisores del proyecto (el diagrama del
+        // proceso no contempla un jurado aparte para este paso — eso es de la Sustentación
+        // final, Etapa 8). Se programa desde Secretaría; aquí solo se muestra en modo lectura.
+        List<JuradoItem> jurado = revisorRepository.listarPorProyecto(p.getId()).stream()
+                .sorted(java.util.Comparator.comparing(rv -> rv.getOrden() != null ? rv.getOrden() : 0))
+                .map(rv -> {
+                    Persona pe = personaRepository.buscarPorId(rv.getDocenteId()).orElse(null);
                     return JuradoItem.builder()
-                            .docenteId(j.getDocenteId())
+                            .docenteId(rv.getDocenteId())
                             .docenteNombre(pe != null ? nombre(pe.getNombres(), pe.getApellidoPaterno(), pe.getApellidoMaterno()) : null)
-                            .rol(j.getRolJurado() != null ? j.getRolJurado().name() : null)
-                            .orden(j.getOrden())
+                            .rol("REVISOR")
+                            .orden(rv.getOrden())
                             .build();
                 })
                 .collect(Collectors.toList());
         return DefensaInfo.builder()
                 .programada(Boolean.TRUE.equals(p.getDefensaProgramada()))
                 .fecha(p.getFechaDefensa()).hora(p.getHoraDefensa()).lugar(p.getLugarDefensa())
+                .modalidad(p.getModalidadDefensa() != null ? p.getModalidadDefensa().name() : null)
+                .modalidadLabel(p.getModalidadDefensa() != null ? p.getModalidadDefensa().etiqueta() : null)
+                .enlace(p.getEnlaceDefensa())
                 .dictamenNumero(p.getDictamenNumero())
                 .jurado(jurado)
                 .build();
-    }
-
-    @Override
-    @Transactional
-    public void programarDefensa(UUID tesisId, ProgramarDefensaRequest req) {
-        guard();
-        ProyectoTesis p = proyecto(tesisId);
-        if (!Boolean.TRUE.equals(p.getRevisoresConformes())) {
-            throw new BusinessException("Los revisores aún no dieron conformidad al proyecto");
-        }
-        if (Boolean.TRUE.equals(p.getDefensaProgramada())) {
-            throw new BusinessException("La defensa de este proyecto ya fue programada");
-        }
-        if (req == null || req.getPresidenteId() == null || req.getMiembroIds() == null || req.getFecha() == null) {
-            throw new ValidationException("Indica presidente, 2 miembros y la fecha de la defensa");
-        }
-        // Presidente + 2 miembros, todos distintos.
-        List<UUID> miembros = new ArrayList<>(new LinkedHashSet<>(req.getMiembroIds()));
-        if (miembros.size() != 2) {
-            throw new ValidationException("Debes designar exactamente 2 miembros (distintos)");
-        }
-        if (miembros.contains(req.getPresidenteId())) {
-            throw new ValidationException("El presidente no puede ser también miembro");
-        }
-        UUID asesorId = asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR")
-                .map(Asesoria::getDocenteId).orElse(null);
-
-        List<UUID> jurado = new ArrayList<>();
-        jurado.add(req.getPresidenteId());
-        jurado.addAll(miembros);
-        for (UUID docenteId : jurado) {
-            if (docenteRepository.findByPersonaId(docenteId).isEmpty()) {
-                throw new ValidationException("Uno de los docentes del jurado no existe");
-            }
-        }
-
-        int orden = 1;
-        juradoRepository.save(ProyectoJurado.builder()
-                .proyectoId(p.getId()).docenteId(req.getPresidenteId()).rolJurado(RolJurado.PRESIDENTE).orden(orden++).build());
-        for (UUID m : miembros) {
-            juradoRepository.save(ProyectoJurado.builder()
-                    .proyectoId(p.getId()).docenteId(m).rolJurado(RolJurado.MIEMBRO).orden(orden++).build());
-        }
-        if (asesorId != null) {
-            juradoRepository.save(ProyectoJurado.builder()
-                    .proyectoId(p.getId()).docenteId(asesorId).rolJurado(RolJurado.ASESOR).orden(orden++).build());
-        }
-
-        p.setDefensaProgramada(true);
-        p.setFechaDefensa(req.getFecha());
-        p.setHoraDefensa(req.getHora());
-        p.setLugarDefensa(req.getLugar());
-        p.setDictamenNumero(generarDictamen(p.getId(), req.getFecha()));
-        proyectoRepository.save(p);
     }
 
     @Override
@@ -229,6 +182,9 @@ public class CoordinadorProyectoServiceImpl implements CoordinadorProyectoServic
         if (!Boolean.TRUE.equals(p.getJuradoInformanteSolicitado())) {
             throw new BusinessException("El estudiante aún no ha solicitado el Jurado Informante");
         }
+        if (!Boolean.TRUE.equals(p.getExpedienteInformeRecibido())) {
+            throw new BusinessException("Secretaría aún no recepciona el expediente del Jurado Informante");
+        }
         if (informeRevisorRepository.contarPorProyecto(p.getId()) > 0) {
             throw new BusinessException("El Jurado Informante ya fue designado");
         }
@@ -255,6 +211,59 @@ public class CoordinadorProyectoServiceImpl implements CoordinadorProyectoServic
         }
     }
 
+    @Override
+    @Transactional
+    public List<unmsm.edu.pe.tesis.application.dto.JuradoItem> juradoSustentacion(UUID tesisId) {
+        guard();
+        ProyectoTesis p = proyecto(tesisId);
+        return juradoSustentacionRepository.listarPorProyecto(p.getId()).stream()
+                .sorted(java.util.Comparator.comparing(rv -> rv.getOrden() != null ? rv.getOrden() : 0))
+                .map(rv -> {
+                    Persona pe = personaRepository.buscarPorId(rv.getDocenteId()).orElse(null);
+                    return unmsm.edu.pe.tesis.application.dto.JuradoItem.builder()
+                            .docenteId(rv.getDocenteId())
+                            .docenteNombre(pe != null ? nombre(pe.getNombres(), pe.getApellidoPaterno(), pe.getApellidoMaterno()) : null)
+                            .rol(Boolean.TRUE.equals(rv.getPresidente()) ? "PRESIDENTE" : "MIEMBRO")
+                            .orden(rv.getOrden())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void designarJuradoSustentacion(UUID tesisId, unmsm.edu.pe.tesis.application.dto.DesignarJuradoInformeRequest req) {
+        guard();
+        ProyectoTesis p = proyecto(tesisId);
+        if (!Boolean.TRUE.equals(p.getExpedienteSustentacionRecibido())) {
+            throw new BusinessException("Secretaría aún no recepciona el expediente de sustentación");
+        }
+        if (juradoSustentacionRepository.contarPorProyecto(p.getId()) > 0) {
+            throw new BusinessException("El Jurado de Sustentación ya fue designado");
+        }
+        List<UUID> ids = req != null && req.getDocenteIds() != null
+                ? new ArrayList<>(new LinkedHashSet<>(req.getDocenteIds())) : List.of();
+        if (ids.size() != 3) {
+            throw new ValidationException("Debes designar exactamente 3 miembros (distintos)");
+        }
+        UUID asesorId = asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR")
+                .map(Asesoria::getDocenteId).orElse(null);
+        int orden = 1;
+        for (UUID docenteId : ids) {
+            if (docenteRepository.findByPersonaId(docenteId).isEmpty()) {
+                throw new ValidationException("Uno de los docentes seleccionados no existe");
+            }
+            if (docenteId.equals(asesorId)) {
+                throw new BusinessException("El asesor no puede integrar el Jurado de Sustentación");
+            }
+            juradoSustentacionRepository.save(unmsm.edu.pe.tesis.domain.entities.JuradoSustentacion.builder()
+                    .proyectoId(p.getId()).docenteId(docenteId).orden(orden)
+                    .presidente(orden == 1)
+                    .build());
+            orden++;
+        }
+    }
+
     /** N° de dictamen referencial: DICTAMEN N° 000NNN-AAAA-UPG-VDIP-FM/UNMSM. */
     private String generarDictamen(UUID proyectoId, java.time.LocalDate fecha) {
         long correlativo = Math.abs(proyectoId.getLeastSignificantBits() % 1000000);
@@ -274,9 +283,13 @@ public class CoordinadorProyectoServiceImpl implements CoordinadorProyectoServic
 
     private DefensaBandejaItem toBandeja(Object[] r) {
         int num = r[9] != null ? ((Number) r[9]).intValue() : 0;
+        UUID proyectoId = (UUID) r[1];
+        UUID tesisId = (UUID) r[0];
+        var p = proyectoRepository.buscarPorTesisId(tesisId).orElse(null);
+        int numJuradoSustentacion = (int) juradoSustentacionRepository.contarPorProyecto(proyectoId);
         return DefensaBandejaItem.builder()
-                .tesisId((UUID) r[0])
-                .proyectoId((UUID) r[1])
+                .tesisId(tesisId)
+                .proyectoId(proyectoId)
                 .estudianteApellidos((asStr(r[2]) + " " + asStr(r[3])).trim())
                 .estudianteNombres(asStr(r[4]))
                 .codigoSistema(asStr(r[5]))
@@ -292,6 +305,9 @@ public class CoordinadorProyectoServiceImpl implements CoordinadorProyectoServic
                 .numJuradoInforme(r.length > 14 && r[14] != null ? ((Number) r[14]).intValue() : 0)
                 .juradoInformeDesignado(r.length > 14 && r[14] != null && ((Number) r[14]).intValue() >= 3)
                 .informeFinalRevisado(r.length > 15 && Boolean.TRUE.equals(r[15]))
+                .expedienteSustentacionRecibido(p != null && Boolean.TRUE.equals(p.getExpedienteSustentacionRecibido()))
+                .numJuradoSustentacion(numJuradoSustentacion)
+                .juradoSustentacionDesignado(numJuradoSustentacion >= 3)
                 .build();
     }
 

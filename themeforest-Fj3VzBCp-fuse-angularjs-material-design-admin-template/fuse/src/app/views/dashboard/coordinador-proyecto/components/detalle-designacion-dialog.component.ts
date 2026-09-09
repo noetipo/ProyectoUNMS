@@ -41,24 +41,17 @@ export interface DetalleDesignacionData {
           } @else { <p class="text-[12px] text-slate-400">Aún no se han designado revisores.</p> }
         </div>
 
-        <!-- Jurado Examinador (defensa) -->
-        @if (data.defensaProgramada) {
+        <!-- Defensa programada: evalúan los mismos revisores de arriba, así que aquí solo va
+             cuándo y cómo (repetir la lista de personas sería redundante). -->
+        @if (data.defensaProgramada && defensa()?.fecha) {
           <div>
-            <p class="text-[11px] font-bold tracking-wider text-slate-400 mb-1.5">JURADO EXAMINADOR DE LA DEFENSA</p>
-            @if (defensa()?.fecha) {
-              <p class="text-[12px] text-slate-500 mb-1.5">
-                {{ defensa().fecha | date:'dd/MM/yyyy' }}<span *ngIf="defensa().hora"> · {{ defensa().hora }}</span><span *ngIf="defensa().lugar"> · {{ defensa().lugar }}</span>
-              </p>
-            }
-            <div class="space-y-1.5">
-              @for (j of defensa()?.jurado ?? []; track j.docenteId) {
-                <div class="flex items-center gap-2 rounded-lg border border-slate-100 px-3 py-2">
-                  <span class="flex-1 text-[13px] text-slate-700">{{ j.docenteNombre }}</span>
-                  <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">{{ rolLabel(j.rol) }}</span>
-                </div>
-              }
-            </div>
-            @if (defensa()?.dictamenNumero) { <p class="text-[10.5px] text-slate-400 font-mono mt-1.5">{{ defensa().dictamenNumero }}</p> }
+            <p class="text-[11px] font-bold tracking-wider text-slate-400 mb-1.5">DEFENSA PROGRAMADA</p>
+            <p class="text-[12px] text-slate-600">
+              {{ defensa().fecha | date:'dd/MM/yyyy' }}<span *ngIf="defensa().hora"> · {{ defensa().hora }}</span>
+              <span *ngIf="defensa().modalidadLabel"> · {{ defensa().modalidadLabel }}</span>
+              <span *ngIf="defensa().lugar"> · {{ defensa().lugar }}</span>
+            </p>
+            @if (defensa()?.dictamenNumero) { <p class="text-[10.5px] text-slate-400 font-mono mt-1">{{ defensa().dictamenNumero }}</p> }
           </div>
         }
 
@@ -109,5 +102,4 @@ export class DetalleDesignacionDialogComponent {
   estadoCls(e?: string): string {
     return e === 'CONFORME' ? 'bg-emerald-100 text-emerald-700' : e === 'OBSERVADO' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500';
   }
-  rolLabel(r?: string): string { return r === 'PRESIDENTE' ? 'Presidente' : r === 'ASESOR' ? 'Asesor(a)' : 'Miembro'; }
 }

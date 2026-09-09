@@ -48,6 +48,10 @@ public class ExpedienteTesisServiceImpl implements ExpedienteTesisService {
     @Inject DictamenDesignacionRepository dictamenRepository;
     @Inject TutoriaRepository tutoriaRepository;
     @Inject unmsm.edu.pe.tesis.domain.repositories.ProyectoTesisRepository proyectoRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.ProyectoRevisionRepository revisionRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.ProyectoRevisorRepository revisorRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.InformeRevisorRepository informeRevisorRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.DictamenExpeditoRepository dictamenExpeditoRepository;
 
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd MMM yyyy", new Locale("es"));
 
@@ -93,6 +97,8 @@ public class ExpedienteTesisServiceImpl implements ExpedienteTesisService {
                 .flatMap(a -> docenteRepository.findByPersonaId(a.getDocenteId()))
                 .map(d -> nombre(d.getPersona())).orElse(null);
 
+        var proyecto = proyectoRepository.buscarPorTesisId(tesisId).orElse(null);
+
         // ── Etapa EN CURSO (1..9; 9 = todo completado) ──
         int enCurso;
         if (!dictamenFirmado) {
@@ -104,7 +110,9 @@ public class ExpedienteTesisServiceImpl implements ExpedienteTesisService {
             enCurso = switch (estadoTesis != null ? estadoTesis : "TEMA_REGISTRADO") {
                 case "PROYECTO_PRESENTADO" -> 5;
                 case "PROYECTO_APROBADO" -> 6;
-                case "EN_DESARROLLO" -> 7;
+                // El estado de la tesis no distingue Jurado Informante (7) de Sustentación (8): se
+                // infiere de si el estudiante ya solicitó su Jurado de Sustentación.
+                case "EN_DESARROLLO" -> proyecto != null && Boolean.TRUE.equals(proyecto.getSustentacionSolicitada()) ? 8 : 7;
                 case "SUSTENTADO" -> 9;
                 default -> 4; // TEMA_REGISTRADO con dictamen firmado → Etapa 4 en curso
             };
@@ -135,6 +143,13 @@ public class ExpedienteTesisServiceImpl implements ExpedienteTesisService {
 
         int avancePct = EtapasProceso.avancePct(enCurso);
 
+        boolean cierreHabilitado = proyecto != null && Boolean.TRUE.equals(proyecto.getCartaAsesor());
+        boolean pendienteCorreccion = proyecto != null && hayCorreccionPendiente(proyecto.getId());
+        // El Dictamen de Expedito habilita a solicitar la sustentación: recién ahí tiene sentido
+        // mostrar la pestaña (antes no hay nada que hacer en ella).
+        boolean sustentacionHabilitada = dictamenExpeditoRepository.buscarPorTesisId(tesisId)
+                .map(d -> d.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.FIRMADO).orElse(false);
+
         return ExpedienteResponse.builder()
                 .tesisId(tesisId)
                 .codigo(est != null ? est.getCodigoSistema() : null)
@@ -151,10 +166,29 @@ public class ExpedienteTesisServiceImpl implements ExpedienteTesisService {
                 // La Etapa 4 (elaboración del proyecto) arranca con el dictamen de designación firmado.
                 .proyectoHabilitado(enCurso >= 4)
                 // Con la carta del asesor emitida, la redacción terminó: toca el cierre del expediente.
-                .cierreHabilitado(proyectoRepository.buscarPorTesisId(tesisId)
-                        .map(pr -> Boolean.TRUE.equals(pr.getCartaAsesor())).orElse(false))
+                .cierreHabilitado(cierreHabilitado)
+                .proyectoPendienteCorreccion(pendienteCorreccion)
+                .sustentacionHabilitada(sustentacionHabilitada)
                 .etapas(etapas)
                 .build();
+    }
+
+    /**
+     * true si queda una observación (de asesor, revisor o Jurado Informante) sin corregir/responder
+     * en el editor del proyecto. El cierre puede estar habilitado y aun así seguir habiendo trabajo
+     * pendiente ahí (p. ej. un revisor observó algo durante la Etapa 5).
+     */
+    private boolean hayCorreccionPendiente(UUID proyectoId) {
+        boolean itemsPendientes = revisionRepository.listarPorProyecto(proyectoId).stream()
+                .anyMatch(r -> r.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoItemRevision.OBSERVADO
+                        || r.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoItemRevision.EN_CORRECCION);
+        boolean revisorSinResponder = revisorRepository.listarPorProyecto(proyectoId).stream()
+                .anyMatch(rv -> rv.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoRevisor.OBSERVADO
+                        && rv.getRespuestaEstudiante() == null);
+        boolean juradoSinResponder = informeRevisorRepository.listarPorProyecto(proyectoId).stream()
+                .anyMatch(rv -> rv.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoRevisor.OBSERVADO
+                        && rv.getRespuestaEstudiante() == null);
+        return itemsPendientes || revisorSinResponder || juradoSinResponder;
     }
 
     private Estudiante estudianteActual() {

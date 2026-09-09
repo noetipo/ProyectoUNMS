@@ -51,16 +51,26 @@ const CRITERIOS = [
               <!-- Cronograma + historial de avances -->
               <div class="space-y-4 min-w-0">
                 <section class="form-card">
-                  <header class="form-card__head"><h2 class="form-card__title !text-[#8C1D2E]">Cronograma de actividades</h2></header>
-                  <div class="space-y-1.5">
-                    @for (a of data.proyecto.actividades ?? []; track $index) {
-                      <div class="flex items-center gap-2 text-[12.5px]">
-                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" [ngClass]="estadoCls(a.estado)">{{ estadoLabel(a.estado) }}</span>
-                        <span class="text-slate-700">{{ a.nombre }}</span>
+                  <header class="form-card__head"><h2 class="form-card__title !text-[#8C1D2E]">Plan de actividades</h2></header>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    @for (col of columnas; track col.v) {
+                      <div class="rounded-lg bg-slate-50 border border-slate-100 p-2.5 min-h-[64px]">
+                        <p class="flex items-center gap-1.5 text-[10px] font-bold tracking-wide text-slate-400 mb-1.5">
+                          <span class="size-2 rounded-full" [ngClass]="col.dot"></span>{{ col.l }}
+                          <span class="ml-auto text-slate-400 font-mono">{{ actsPorEstado(data.proyecto.actividades, col.v).length }}</span>
+                        </p>
+                        <div class="space-y-1.5">
+                          @for (a of actsPorEstado(data.proyecto.actividades, col.v); track a.id ?? a.nombre) {
+                            <div class="rounded-md bg-white border border-slate-200 px-2 py-1.5">
+                              <p class="text-[11.5px] text-slate-700 leading-tight">{{ a.nombre }}</p>
+                            </div>
+                          }
+                          @if (!actsPorEstado(data.proyecto.actividades, col.v).length) { <p class="text-[11px] text-slate-300 italic">Sin actividades</p> }
+                        </div>
                       </div>
                     }
-                    @if (!(data.proyecto.actividades?.length)) { <p class="text-[12px] text-slate-400">Sin actividades.</p> }
                   </div>
+                  @if (!(data.proyecto.actividades?.length)) { <p class="text-[12px] text-slate-400 mt-2">Sin actividades.</p> }
                 </section>
 
                 <section class="form-card">
@@ -167,9 +177,14 @@ export class EjecucionDetalleComponent implements OnInit {
 
   set(key: string, n: number): void { this.puntajes.set({ ...this.puntajes(), [key]: n }); }
 
-  estadoLabel(e?: string): string { return e === 'HECHA' ? 'Hecha' : e === 'EN_CURSO' ? 'En curso' : 'Pendiente'; }
-  estadoCls(e?: string): string {
-    return e === 'HECHA' ? 'bg-emerald-100 text-emerald-700' : e === 'EN_CURSO' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500';
+  protected readonly columnas = [
+    { v: 'PENDIENTE', l: 'Pendiente', dot: 'bg-slate-400' },
+    { v: 'EN_CURSO', l: 'En curso', dot: 'bg-amber-500' },
+    { v: 'HECHA', l: 'Hecha', dot: 'bg-emerald-500' },
+  ];
+
+  actsPorEstado(acts: any[] | undefined, estado: string): any[] {
+    return (acts ?? []).filter((a) => (a.estado ?? 'PENDIENTE') === estado);
   }
 
   registrar(): void {

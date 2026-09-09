@@ -45,6 +45,10 @@ import { PROY_DEF, tipoDot, tipoVerbo } from '../../mi-proyecto/models/proyecto.
                   <span class="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11.5px] font-semibold text-sky-700 shrink-0">
                     <mat-icon svgIcon="rotate-ccw" class="size-3.5 shrink-0" /> El estudiante levantó tus observaciones
                   </span>
+                } @else if (bloqueadaCalificacion()) {
+                  <span class="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11.5px] font-semibold text-amber-700 shrink-0">
+                    <mat-icon svgIcon="lock" class="size-3.5 shrink-0" /> Subsanación solicitada · esperando al estudiante
+                  </span>
                 }
               </div>
             </section>
@@ -165,19 +169,19 @@ import { PROY_DEF, tipoDot, tipoVerbo } from '../../mi-proyecto/models/proyecto.
                                   <p class="text-[12px] font-semibold text-slate-700 leading-snug min-w-0">{{ cr.titulo }}</p>
                                   <div class="shrink-0 inline-flex rounded-lg border border-slate-200 overflow-hidden divide-x divide-slate-200"
                                        role="group" [attr.aria-label]="'Calificar ' + cr.titulo">
-                                    <button type="button" [disabled]="d.cerrada"
+                                    <button type="button" [disabled]="d.cerrada || bloqueadaCalificacion()"
                                             class="w-[74px] px-1 py-1 text-[10px] font-bold uppercase tracking-wide leading-none transition disabled:opacity-50"
                                             [ngClass]="niveles()[cr.key] === 'CUMPLE' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'"
                                             (click)="setNivel(cr.key, 'CUMPLE')">
                                       Cumple <span class="text-[11px] font-extrabold">{{ cr.cumple }}</span>
                                     </button>
-                                    <button type="button" [disabled]="d.cerrada"
+                                    <button type="button" [disabled]="d.cerrada || bloqueadaCalificacion()"
                                             class="w-[74px] px-1 py-1 text-[10px] font-bold uppercase tracking-wide leading-none transition disabled:opacity-50"
                                             [ngClass]="niveles()[cr.key] === 'PARCIAL' ? 'bg-amber-500 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'"
                                             (click)="setNivel(cr.key, 'PARCIAL')">
                                       Parcial <span class="text-[11px] font-extrabold">{{ cr.parcial }}</span>
                                     </button>
-                                    <button type="button" [disabled]="d.cerrada"
+                                    <button type="button" [disabled]="d.cerrada || bloqueadaCalificacion()"
                                             class="w-[74px] px-1 py-1 text-[10px] font-bold uppercase tracking-wide leading-none transition disabled:opacity-50"
                                             [ngClass]="niveles()[cr.key] === 'NO_CUMPLE' ? 'bg-rose-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'"
                                             (click)="setNivel(cr.key, 'NO_CUMPLE')">
@@ -201,27 +205,70 @@ import { PROY_DEF, tipoDot, tipoVerbo } from '../../mi-proyecto/models/proyecto.
                                   }
                                 </div>
                                 @if (obsOpen(cr.key) || observaciones()[cr.key]) {
-                                  <textarea class="mt-1 w-full rounded-lg border border-amber-200 bg-amber-50/60 px-2.5 py-1.5 text-[11.5px] focus:outline-none focus:border-amber-400"
-                                            rows="2" [disabled]="d.cerrada" [ngModel]="observaciones()[cr.key] || ''" (ngModelChange)="setObs(cr.key, $event)"
-                                            [placeholder]="'Sugerencia de subsanación para «' + cr.titulo + '»…'"></textarea>
-                                  <!-- La caja necesitaba salida: qué pasa con lo escrito y cómo deshacerlo. -->
-                                  @if (!d.cerrada) {
-                                    <div class="flex items-center gap-2 mt-1">
-                                      <span class="flex-1 text-[10px] text-slate-400 leading-tight">
-                                        Se envía al estudiante al pulsar <b>Solicitar subsanación</b>.
-                                      </span>
-                                      <button type="button" class="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
-                                              (click)="quitarObs(cr.key)">
-                                        <mat-icon svgIcon="x" class="size-3" /> Quitar observación
-                                      </button>
+                                  @if (enviadas().has(cr.key)) {
+                                    <!-- Ya está en el servidor (se envió con Solicitar subsanación antes):
+                                         sigue editable hasta el próximo envío. -->
+                                    <textarea class="mt-1 w-full rounded-lg border border-amber-200 bg-amber-50/60 px-2.5 py-1.5 text-[11.5px] focus:outline-none focus:border-amber-400"
+                                              rows="2" [disabled]="d.cerrada" [ngModel]="observaciones()[cr.key] || ''" (ngModelChange)="setObs(cr.key, $event)"
+                                              [placeholder]="'Sugerencia de subsanación para «' + cr.titulo + '»…'"></textarea>
+                                    @if (!d.cerrada) {
+                                      <div class="flex items-center gap-2 mt-1">
+                                        <span class="flex-1 text-[10px] text-slate-400 leading-tight">Ya está enviada al estudiante.</span>
+                                        <button type="button" class="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
+                                                (click)="quitarObs(cr.key)">
+                                          <mat-icon svgIcon="x" class="size-3" /> Quitar observación
+                                        </button>
+                                      </div>
+                                    }
+                                  } @else if (confirmadas().has(cr.key) && !obsOpen(cr.key)) {
+                                    <!-- Guardada localmente: queda lista, a la espera de "Solicitar subsanación"
+                                         (que envía TODAS las observaciones guardadas de una vez). -->
+                                    <div class="mt-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5">
+                                      <p class="text-[10px] font-bold text-emerald-700 flex items-center gap-1">
+                                        <mat-icon svgIcon="check" class="size-3" /> Observación guardada
+                                      </p>
+                                      <p class="text-[11px] text-slate-700 whitespace-pre-wrap">{{ observaciones()[cr.key] }}</p>
+                                      @if (!d.cerrada) {
+                                        <div class="flex items-center gap-2 mt-1">
+                                          <button type="button" class="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold text-slate-500 hover:text-slate-700 hover:bg-white transition"
+                                                  (click)="toggleObs(cr.key)">
+                                            <mat-icon svgIcon="pencil" class="size-3" /> Editar
+                                          </button>
+                                          <button type="button" class="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
+                                                  (click)="quitarObs(cr.key)">
+                                            <mat-icon svgIcon="x" class="size-3" /> Quitar
+                                          </button>
+                                        </div>
+                                      }
                                     </div>
+                                  } @else {
+                                    <!-- Redactando: todavía no se guardó, así que no es "Observado" de verdad. -->
+                                    <textarea class="mt-1 w-full rounded-lg border border-amber-200 bg-amber-50/60 px-2.5 py-1.5 text-[11.5px] focus:outline-none focus:border-amber-400"
+                                              rows="2" [disabled]="d.cerrada" [ngModel]="observaciones()[cr.key] || ''" (ngModelChange)="setObs(cr.key, $event)"
+                                              [placeholder]="'Sugerencia de subsanación para «' + cr.titulo + '»…'"></textarea>
+                                    @if (!d.cerrada) {
+                                      <div class="flex items-center gap-2 mt-1">
+                                        <span class="flex-1 text-[10px] text-slate-400 leading-tight">Aún no se guardó esta observación.</span>
+                                        <button type="button" class="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition"
+                                                (click)="quitarObs(cr.key)">
+                                          <mat-icon svgIcon="x" class="size-3" /> Descartar
+                                        </button>
+                                        <button type="button" class="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+                                                [disabled]="!(observaciones()[cr.key] ?? '').trim()"
+                                                (click)="guardarObs(cr.key)">
+                                          <mat-icon svgIcon="check" class="size-3" /> Guardar
+                                        </button>
+                                      </div>
+                                    }
                                   }
                                 }
 
                                 <!-- Qué corrigió el estudiante EN ESTE criterio + la decisión, juntas.
-                                     El botón se ofrece siempre que el criterio siga observado: si el
-                                     revisor ya lo revisó en el PDF, puede aceptarlo sin más. -->
-                                @if (observaciones()[cr.key] && !d.cerrada) {
+                                     Solo si la observación ya se envió (existe en el servidor): un
+                                     borrador que el revisor recién está redactando no tiene nada que
+                                     "aceptar" todavía. El botón se ofrece siempre que el criterio siga
+                                     observado: si el revisor ya lo revisó en el PDF, puede aceptarlo sin más. -->
+                                @if (enviadas().has(cr.key) && observaciones()[cr.key] && !d.cerrada) {
                                   <div class="mt-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5">
                                     @if (cr.correccionEstudiante) {
                                       <p class="text-[10px] font-bold text-sky-700 flex items-center gap-1">
@@ -302,7 +349,14 @@ export class RevisorEvaluarComponent implements OnInit {
 
   protected data = signal<any | null>(null);
   protected niveles = signal<Record<string, string>>({});        // criterio -> CUMPLE | PARCIAL | NO_CUMPLE
-  protected observaciones = signal<Record<string, string>>({});  // criterio -> observación
+  protected observaciones = signal<Record<string, string>>({});  // criterio -> observación (incluye borradores sin enviar)
+  /** Criterios cuya observación ya quedó registrada en el servidor (se envió con "Solicitar
+   *  subsanación"). Un borrador que el revisor recién está escribiendo no cuenta como enviado:
+   *  "Aceptar corrección" solo tiene sentido sobre una observación que el alumno ya puede ver. */
+  protected enviadas = signal<Set<string>>(new Set());
+  /** Observaciones nuevas que el revisor ya guardó con el botón "Guardar" (pero aún no se
+   *  enviaron: eso solo ocurre al pulsar "Solicitar subsanación", que las envía todas juntas). */
+  protected confirmadas = signal<Set<string>>(new Set());
   protected guardando = signal(false);
   private tesisId = '';
 
@@ -384,6 +438,7 @@ export class RevisorEvaluarComponent implements OnInit {
         }));
         this.niveles.set(nv);
         this.observaciones.set(obs);
+        this.enviadas.set(new Set(Object.keys(obs)));
         // Con la rúbrica ya calificada, TODAS las secciones se pliegan solas (están completas) y
         // los criterios observados —donde ahora se acepta la corrección— quedaban escondidos.
         // Si el estudiante respondió, se abren esas secciones para que la acción se vea.
@@ -421,8 +476,17 @@ export class RevisorEvaluarComponent implements OnInit {
   val(d: any, k: string): string { return d?.proyecto?.campos?.[k] ?? ''; }
 
   setNivel(key: string, nivel: string): void {
-    if (this.data()?.cerrada) return;
+    if (this.data()?.cerrada || this.bloqueadaCalificacion()) return;
     this.niveles.set({ ...this.niveles(), [key]: nivel });
+  }
+
+  /**
+   * Ya se pidió subsanación y se está esperando al estudiante: la calificación queda congelada
+   * hasta que corrija (el backend recién marca `cerrada` con la conformidad final, así que esta
+   * espera intermedia necesita su propio candado en pantalla).
+   */
+  protected bloqueadaCalificacion(): boolean {
+    return this.data()?.miEstado === 'OBSERVADO';
   }
 
   // ── Correcciones por verificar (solo si el estudiante respondió y hay observación pendiente) ──
@@ -459,11 +523,24 @@ export class RevisorEvaluarComponent implements OnInit {
     if (this.data()?.cerrada) return;
     this.observaciones.set({ ...this.observaciones(), [key]: '' });
     const s = new Set(this.obsSet()); s.delete(key); this.obsSet.set(s);
+    const env = new Set(this.enviadas()); env.delete(key); this.enviadas.set(env);
+    const conf = new Set(this.confirmadas()); conf.delete(key); this.confirmadas.set(conf);
   }
 
   /** Descarta la observación del criterio y cierra su caja de texto. */
   quitarObs(key: string): void {
     this.aceptarCorreccion(key);
+  }
+
+  /**
+   * Guarda esta observación puntual (requiere texto). Queda lista y colapsada, a la espera de
+   * "Solicitar subsanación" — el botón que de verdad la envía, junto con las demás guardadas.
+   */
+  guardarObs(key: string): void {
+    if (this.data()?.cerrada) return;
+    if (!(this.observaciones()[key] ?? '').trim()) return;
+    const conf = new Set(this.confirmadas()); conf.add(key); this.confirmadas.set(conf);
+    const s = new Set(this.obsSet()); s.delete(key); this.obsSet.set(s);
   }
 
   // ── Observación por criterio + plegado de secciones ──
@@ -477,8 +554,32 @@ export class RevisorEvaluarComponent implements OnInit {
     s.has(k) ? s.delete(k) : s.add(k);
     this.obsSet.set(s);
   }
+  /**
+   * Solo lo guardado (o ya enviado antes) viaja al servidor: un borrador a medio escribir, sin
+   * pasar por "Guardar", no debe colarse en el envío solo porque el revisor tenía la caja abierta.
+   */
+  private observacionesParaEnviar(): Record<string, string> {
+    const obs = this.observaciones();
+    const out: Record<string, string> = {};
+    Object.keys(obs).forEach((k) => {
+      if (this.enviadas().has(k) || this.confirmadas().has(k)) out[k] = obs[k];
+    });
+    return out;
+  }
+
   protected hayObservacion(): boolean {
-    return Object.values(this.observaciones()).some((o) => (o ?? '').trim().length > 0);
+    return Object.values(this.observacionesParaEnviar()).some((o) => (o ?? '').trim().length > 0);
+  }
+
+  /**
+   * Texto escrito que nunca se guardó ni se descartó. Se revisa por el propio texto, no por si
+   * la caja sigue abierta: si el revisor la cierra con el botón "Observar" en vez de "Guardar" o
+   * "Descartar", el texto queda huérfano igual y no debe colarse (ni perderse en silencio) al enviar.
+   */
+  protected hayBorradorSinGuardar(): boolean {
+    const obs = this.observaciones();
+    return Object.keys(obs).some((k) =>
+      !this.enviadas().has(k) && !this.confirmadas().has(k) && (obs[k] ?? '').trim().length > 0);
   }
   seccionCompleta(sec: any): boolean {
     const nv = this.niveles();
@@ -498,19 +599,55 @@ export class RevisorEvaluarComponent implements OnInit {
     this.secForzadas.set({ ...this.secForzadas(), [sec.key]: !this.secAbierta(sec) });
   }
 
+  /**
+   * Un criterio calificado como Parcial/No cumple, pero sin observación guardada: sin ese texto
+   * el ítem del editor no tiene a dónde llevar al estudiante (se queda con el estado que tenía
+   * antes, a veces "conforme" de una etapa previa, y parece que no hay nada que corregir).
+   */
+  protected criteriosSinObservar(): any[] {
+    const nv = this.niveles();
+    const enviadasOGuardadas = new Set([...this.enviadas(), ...this.confirmadas()]);
+    return this.criterios().filter((c: any) => nv[c.key] && nv[c.key] !== 'CUMPLE' && !enviadasOGuardadas.has(c.key));
+  }
+
   evaluar(conforme: boolean): void {
     if (!this.completa() || this.guardando()) return;
+    if (this.hayBorradorSinGuardar()) {
+      this._toast.error('Guarda o descarta la observación que estás redactando antes de continuar'); return;
+    }
+    if (!conforme) {
+      const faltantes = this.criteriosSinObservar();
+      if (faltantes.length) {
+        this._toast.error(`Falta escribir la observación de «${faltantes[0].titulo}» (lo calificaste sin Cumple del todo)`);
+        this.irACriterio(faltantes[0].key);
+        return;
+      }
+    }
     if (!conforme && !this.hayObservacion()) {
       this._toast.error('Agrega al menos una observación para que el estudiante subsane'); return;
     }
+    // Si soy el último revisor pendiente, mi conformidad aprueba el proyecto: hay que decirlo.
+    const ultimo = conforme && !!this.data()?.ultimoPendiente;
     this._confirm.confirmSave({
       title: conforme ? 'Dar conformidad al proyecto' : 'Solicitar la subsanación',
       message: conforme
-        ? 'Registrarás tu conformidad con la rúbrica. Una vez dada, tu evaluación queda cerrada. ¿Continuar?'
-        : 'Guardarás tu rúbrica y las observaciones; el proyecto volverá al estudiante para que las subsane. ¿Continuar?',
+        ? (ultimo
+            ? 'Eres el último revisor que falta. Al confirmar:'
+            : 'Registrarás tu conformidad con la rúbrica. Al confirmar:')
+        : 'Guardarás tu rúbrica y las observaciones. Al confirmar:',
+      details: conforme
+        ? (ultimo
+            ? ['el proyecto queda aprobado por los revisores',
+               'pasa a la Secretaría para programar la defensa',
+               'tu evaluación se cierra y ya no podrás observar']
+            : ['tu evaluación se cierra y ya no podrás observar',
+               'el proyecto sigue en espera del otro revisor'])
+        : ['el proyecto vuelve al doctorando para que subsane',
+           'podrás revisar de nuevo cuando levante las observaciones'],
+      confirmLabel: conforme ? 'Sí, dar conformidad' : 'Solicitar subsanación',
     }).then(() => {
       this.guardando.set(true);
-      this._svc.evaluar$(this.tesisId, this.niveles(), this.observaciones(), '', conforme).subscribe({
+      this._svc.evaluar$(this.tesisId, this.niveles(), this.observacionesParaEnviar(), '', conforme).subscribe({
         next: () => { this._toast.success(conforme ? 'Conformidad registrada' : 'Subsanación solicitada'); this.guardando.set(false); this.cargar(); },
         error: (e) => { this.guardando.set(false); this._toast.error(e?.error?.message ?? 'No se pudo registrar la evaluación'); },
       });

@@ -10,7 +10,6 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import unmsm.edu.pe.shared.response.ApiResponse;
 import unmsm.edu.pe.tesis.application.dto.DesignarJuradoInformeRequest;
 import unmsm.edu.pe.tesis.application.dto.DesignarRevisoresRequest;
-import unmsm.edu.pe.tesis.application.dto.ProgramarDefensaRequest;
 import unmsm.edu.pe.tesis.domain.services.CoordinadorProyectoService;
 
 import java.util.UUID;
@@ -71,5 +70,18 @@ public class CoordinadorProyectoResource {
     public Response designarJuradoInforme(@PathParam("tesisId") UUID tesisId, DesignarJuradoInformeRequest req) {
         service.designarJuradoInforme(tesisId, req);
         return Response.ok(ApiResponse.success("Jurado Informante designado")).build();
+    }
+
+    @GET @Path("/{tesisId}/jurado-sustentacion")
+    @Operation(summary = "Miembros del Jurado de Sustentación designados")
+    public Response juradoSustentacion(@PathParam("tesisId") UUID tesisId) {
+        return Response.ok(ApiResponse.success("Jurado de Sustentación", service.juradoSustentacion(tesisId))).build();
+    }
+
+    @POST @Path("/{tesisId}/jurado-sustentacion")
+    @Operation(summary = "Designar los 3 miembros del Jurado de Sustentación")
+    public Response designarJuradoSustentacion(@PathParam("tesisId") UUID tesisId, DesignarJuradoInformeRequest req) {
+        service.designarJuradoSustentacion(tesisId, req);
+        return Response.ok(ApiResponse.success("Jurado de Sustentación designado")).build();
     }
 }

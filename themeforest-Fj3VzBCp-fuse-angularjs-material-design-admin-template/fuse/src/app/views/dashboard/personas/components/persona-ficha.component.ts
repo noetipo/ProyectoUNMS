@@ -651,7 +651,8 @@ export class PersonaFichaComponent implements OnInit {
         this._dialog.open(DocumentoPreviewDialogComponent, {
           panelClass: ['dialog-anim'],
           autoFocus: false,
-          maxWidth: '92vw',
+          maxWidth: '96vw',
+          maxHeight: '92vh',
           data: { nombre, url, esPdf, mime: tipo },
         }).afterClosed().subscribe(() => setTimeout(() => URL.revokeObjectURL(url), 1000));
       },

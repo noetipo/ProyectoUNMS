@@ -91,10 +91,10 @@ import { Expediente, claseEtapa, etiquetaEtapa } from '../models/expediente.mode
                           <mat-icon svgIcon="file-text" class="size-3.5" /> {{ et.dictamenLabel }}
                         </span>
                       }
-                      @if (et.numero === 4 && et.estado === 'EN_CURSO' && !ajeno()) {
+                      @if (et.estado === 'EN_CURSO' && !ajeno() && destinoDeEtapa(et.numero); as destino) {
                         <div class="mt-2">
-                          <button mat-flat-button color="primary" class="!h-8 !text-xs" (click)="abrirEditor()">
-                            <mat-icon svgIcon="square-pen" class="size-3.5 mr-1" /> Abrir editor del proyecto
+                          <button mat-flat-button color="primary" class="!h-8 !text-xs" (click)="irA(destino.ruta)">
+                            <mat-icon [svgIcon]="destino.icon" class="size-3.5 mr-1" /> {{ destino.label }}
                           </button>
                         </div>
                       }
@@ -139,8 +139,24 @@ export class ExpedienteTesisComponent implements OnInit {
     });
   }
 
-  abrirEditor(): void {
-    this._router.navigate(['/admin/mi-tesis/proyecto']);
+  /**
+   * A qué pestaña de "Mi tesis" lleva el paso EN_CURSO, para poder hacer clic y entrar
+   * directamente en vez de tener que buscarlo en el menú. Las etapas sin pantalla propia para
+   * el estudiante (registro del tema, designación del tutor, sustentación) no ofrecen destino.
+   */
+  protected destinoDeEtapa(numero: number): { ruta: string; label: string; icon: string } | null {
+    switch (numero) {
+      case 3: return { ruta: 'asesoria', label: 'Ir a Mi asesoría', icon: 'handshake' };
+      case 4: return { ruta: 'proyecto', label: 'Abrir editor del proyecto', icon: 'square-pen' };
+      case 5: return { ruta: 'cierre', label: 'Ir a Cierre y envío', icon: 'send' };
+      case 6:
+      case 7: return { ruta: 'ejecucion', label: 'Ir a Ejecución de tesis', icon: 'rocket' };
+      default: return null;
+    }
+  }
+
+  irA(ruta: string): void {
+    this._router.navigate(['/admin/mi-tesis', ruta]);
   }
 
   volverAlSeguimiento(): void {

@@ -62,10 +62,11 @@ import { MatIconModule } from '@angular/material/icon';
               <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px]">{{ s.nivel | titlecase }}</span>
             }
           </div>
+          <p class="text-[10.5px] font-bold text-slate-400 uppercase tracking-wide mt-3 mb-1">Resumen</p>
           @if (s.temaResumen) {
-            <p class="text-[12.5px] text-slate-600 leading-relaxed mt-2 whitespace-pre-wrap">{{ s.temaResumen }}</p>
+            <p class="text-[12.5px] text-slate-600 leading-relaxed whitespace-pre-wrap">{{ s.temaResumen }}</p>
           } @else {
-            <p class="text-[12px] text-slate-400 italic mt-2">El estudiante aún no registró un resumen del tema.</p>
+            <p class="text-[12px] text-slate-400 italic">El estudiante aún no registró un resumen del tema.</p>
           }
         </section>
 

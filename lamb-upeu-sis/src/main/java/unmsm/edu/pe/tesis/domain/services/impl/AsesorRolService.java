@@ -13,12 +13,14 @@ import unmsm.edu.pe.security.domain.repositories.UserRoleAssignmentRepository;
 import java.util.UUID;
 
 /**
- * Otorga el rol ASESOR a un docente cuando es designado como asesor de una tesis. Es idempotente
- * (no duplica el rol) y tolerante a datos faltantes. Sin este rol, el docente no puede acceder a la
- * bandeja de revisión del proyecto (guard {@code requireAnyRole("ASESOR")}).
+ * Otorga a un docente el rol que le corresponde cuando el proceso lo designa: ASESOR al aceptar
+ * la asesoría, REVISOR al ser designado revisor de un proyecto. Es idempotente (no duplica el rol)
+ * y tolerante a datos faltantes. Sin el rol, el docente no ve la bandeja correspondiente
+ * (guard {@code requireAnyRole("ASESOR")}) ni se distingue su papel en el sistema.
  *
- * <p>Se debe invocar en TODA ruta donde un docente pase a ser asesor: al aceptar la solicitud de
- * asesoría (designación) y al materializar el proyecto con su asesor (auto-repara datos previos).</p>
+ * <p>Se debe invocar en TODA ruta donde un docente pase a cumplir el papel: al aceptar la solicitud
+ * de asesoría, al materializar el proyecto con su asesor (auto-repara datos previos) y al designar
+ * los revisores de un proyecto.</p>
  */
 @ApplicationScoped
 public class AsesorRolService {
@@ -29,16 +31,25 @@ public class AsesorRolService {
 
     /** Otorga el rol ASESOR al docente (por su personaId) si aún no lo tiene. No-op si falta algún dato. */
     public void otorgarRolAsesor(UUID docentePersonaId) {
+        otorgar(docentePersonaId, "ASESOR");
+    }
+
+    /** Otorga el rol REVISOR al docente designado como revisor de un proyecto. */
+    public void otorgarRolRevisor(UUID docentePersonaId) {
+        otorgar(docentePersonaId, "REVISOR");
+    }
+
+    private void otorgar(UUID docentePersonaId, String codigoRol) {
         if (docentePersonaId == null) return;
         Persona persona = personaRepository.buscarPorId(docentePersonaId).orElse(null);
         if (persona == null || persona.getUser() == null) return;
         User user = persona.getUser();
-        Role rolAsesor = roleRepository.findFirstByCodeOrderByCreatedAtAsc("ASESOR").orElse(null);
-        if (rolAsesor == null) return;
-        boolean yaTiene = userRoleRepository.findRoleCodesByUserId(user.getId()).contains("ASESOR");
+        Role rol = roleRepository.findFirstByCodeOrderByCreatedAtAsc(codigoRol).orElse(null);
+        if (rol == null) return;
+        boolean yaTiene = userRoleRepository.findRoleCodesByUserId(user.getId()).contains(codigoRol);
         if (!yaTiene) {
             userRoleRepository.save(UserRoleAssignment.builder()
-                    .user(user).role(rolAsesor).assigned(true).build());
+                    .user(user).role(rol).assigned(true).build());
         }
     }
 }

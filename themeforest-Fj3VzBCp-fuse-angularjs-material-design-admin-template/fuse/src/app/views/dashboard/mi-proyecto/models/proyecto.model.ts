@@ -197,7 +197,8 @@ export interface ProyectoEditor {
   referencias?: ReferenciaItem[]; estiloCita?: string; estiloCitaBloqueado?: boolean;
   evaluacionesRevisores?: RevisorEval[]; revisoresConformes?: boolean;
   defensaProgramada?: boolean; fechaDefensa?: string; horaDefensa?: string;
-  lugarDefensa?: string; dictamenNumero?: string;
+  lugarDefensa?: string; modalidadDefensaLabel?: string; enlaceDefensa?: string; dictamenNumero?: string;
+  defensaRealizada?: boolean; resultadoDefensa?: string; resultadoDefensaLabel?: string; proyectoAprobado?: boolean;
   informeFinalSubido?: boolean; informeFinalAprobado?: boolean; avances?: AvanceEval[];
   juradoInformanteSolicitado?: boolean; informeFinalRevisado?: boolean; evaluacionesJuradoInforme?: JuradoInformeEval[];
   puedeMarcarListo: boolean; todosConformes: boolean;

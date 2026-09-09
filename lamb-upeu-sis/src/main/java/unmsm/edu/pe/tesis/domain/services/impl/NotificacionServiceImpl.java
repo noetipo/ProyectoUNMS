@@ -48,6 +48,12 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Inject unmsm.edu.pe.tesis.domain.repositories.SolicitudAsesoriaRepository solicitudRepository;
     @Inject unmsm.edu.pe.tesis.domain.repositories.SugerenciaAsesorRepository sugerenciaRepository;
     @Inject unmsm.edu.pe.tesis.domain.repositories.DictamenDesignacionRepository dictamenRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.DictamenAprobacionRepository dictamenAprobacionRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.RubricaDefensaRepository rubricaDefensaRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.DictamenExpeditoRepository dictamenExpeditoRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.DictamenJuradoInformeRepository dictamenJuradoInformeRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.DictamenSustentacionRepository dictamenSustentacionRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.JuradoSustentacionRepository juradoSustentacionRepository;
     @Inject unmsm.edu.pe.tutorias.domain.repositories.TutoriaRepository tutoriaRepository;
     @Inject unmsm.edu.pe.tutorias.domain.repositories.ReporteTutoresRepository reporteTutoresRepository;
 
@@ -57,6 +63,115 @@ public class NotificacionServiceImpl implements NotificacionService {
 
     private boolean rubricaSubida(UUID tesisId) {
         return documentoTesisRepository.existePorTesisYTipo(tesisId, RevisorProyectoServiceImpl.T_RUBRICA);
+    }
+
+    /**
+     * Lo que le falta a la Secretaría en un expediente cuya defensa ya está programada:
+     * {título, descripción, icono}, o null si el cierre ya se completó.
+     */
+    private String[] pendienteDeCierre(UUID tesisId) {
+        var p = proyectoRepository.buscarPorTesisId(tesisId).orElse(null);
+        if (p == null || Boolean.TRUE.equals(p.getProyectoAprobado())) {
+            return null;
+        }
+        int esperadas = (int) revisorRepository.contarPorProyecto(p.getId());
+        int recibidas = rubricaDefensaRepository.porTesis(tesisId).size();
+        if (recibidas < esperadas) {
+            return new String[]{"Recepciona las rúbricas de la defensa",
+                    "Faltan " + (esperadas - recibidas) + " de " + esperadas
+                            + " rúbricas de la defensa de {estudiante}.", "clipboard-check"};
+        }
+        if (!Boolean.TRUE.equals(p.getDefensaRealizada())) {
+            return new String[]{"Registra el resultado de la defensa",
+                    "Ya tienes las rúbricas de {estudiante}: registra si el proyecto fue aprobado.", "gavel"};
+        }
+        if (p.getResultadoDefensa() != null && !p.getResultadoDefensa().favorable()) {
+            return null;    // desaprobado: no hay dictamen que emitir
+        }
+        var dic = dictamenAprobacionRepository.buscarPorTesisId(tesisId).orElse(null);
+        if (dic == null || dic.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.POR_ELABORAR) {
+            return new String[]{"Elabora el dictamen de aprobación",
+                    "El proyecto de {estudiante} fue aprobado en la defensa. Elabora el dictamen.", "stamp"};
+        }
+        if (dic.getEstado() != unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.FIRMADO) {
+            return new String[]{"Sube el dictamen de aprobación firmado",
+                    "El dictamen de {estudiante} está elaborado y espera la firma del Director.", "file-up"};
+        }
+        return new String[]{"Archiva el proyecto final",
+                "Falta archivar el proyecto final de {estudiante} para cerrar la etapa.", "archive"};
+    }
+
+    /**
+     * Lo que le falta a la Secretaría en el trámite del Jurado Informante / Dictamen de Expedito,
+     * o null si ya está cerrado (Dictamen de Expedito firmado).
+     */
+    private String[] pendienteDeJuradoInforme(UUID tesisId) {
+        var p = proyectoRepository.buscarPorTesisId(tesisId).orElse(null);
+        if (p == null) return null;
+        var expedito = dictamenExpeditoRepository.buscarPorTesisId(tesisId).orElse(null);
+        if (expedito != null && expedito.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.FIRMADO) {
+            return null;
+        }
+        if (!Boolean.TRUE.equals(p.getExpedienteInformeRecibido())) {
+            return new String[]{"Recepciona el expediente del Jurado Informante",
+                    "{estudiante} solicitó el Jurado Informante. Recepciona el expediente y comunícalo al Coordinador.", "inbox"};
+        }
+        var proy = proyectoRepository.buscarPorTesisId(tesisId).orElse(null);
+        long numJurado = proy != null ? informeRevisorRepository.contarPorProyecto(proy.getId()) : 0;
+        if (numJurado < 3) {
+            return null; // esperando al Coordinador
+        }
+        var dic = dictamenJuradoInformeRepository.buscarPorTesisId(tesisId).orElse(null);
+        if (dic == null || dic.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.POR_ELABORAR) {
+            return new String[]{"Elabora el dictamen del Jurado Informante",
+                    "El Coordinador designó al Jurado Informante de {estudiante}. Elabora el dictamen de designación.", "stamp"};
+        }
+        if (dic.getEstado() != unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.FIRMADO) {
+            return new String[]{"Sube el dictamen del Jurado Informante firmado",
+                    "El dictamen del Jurado Informante de {estudiante} está elaborado y espera la firma.", "file-up"};
+        }
+        if (!Boolean.TRUE.equals(p.getInformeFinalRevisado())) {
+            return null; // esperando la conformidad del jurado
+        }
+        if (!Boolean.TRUE.equals(p.getInformeFinalArchivado())) {
+            return new String[]{"Archiva el expediente del Jurado Informante",
+                    "El Jurado Informante dio conformidad al informe final de {estudiante}. Archiva el expediente.", "archive"};
+        }
+        return new String[]{"Elabora el Dictamen de Expedito",
+                "El expediente del Jurado Informante de {estudiante} está archivado. Elabora el Dictamen de Expedito.", "stamp"};
+    }
+
+    /** Lo que le falta a la Secretaría en el trámite de Sustentación, o null si ya concluyó. */
+    private String[] pendienteDeSustentacion(UUID tesisId, ProyectoTesis p) {
+        if (Boolean.TRUE.equals(p.getTesisConcluida())) {
+            return null;
+        }
+        if (!Boolean.TRUE.equals(p.getExpedienteSustentacionRecibido())) {
+            return new String[]{"Recepciona el expediente de sustentación",
+                    "{estudiante} solicitó su Jurado de Sustentación. Recepciona el expediente y comunícalo al Coordinador.", "inbox"};
+        }
+        long numJurado = juradoSustentacionRepository.contarPorProyecto(p.getId());
+        if (numJurado < 3) {
+            return null; // esperando al Coordinador
+        }
+        var dic = dictamenSustentacionRepository.buscarPorTesisId(tesisId).orElse(null);
+        if (dic == null || dic.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.POR_ELABORAR) {
+            return new String[]{"Elabora el dictamen del Jurado de Sustentación",
+                    "El Coordinador designó al Jurado de Sustentación de {estudiante}. Elabora el dictamen de designación.", "stamp"};
+        }
+        if (dic.getEstado() != unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.FIRMADO) {
+            return new String[]{"Sube el dictamen de sustentación firmado",
+                    "El dictamen del Jurado de Sustentación de {estudiante} está elaborado y espera la firma.", "file-up"};
+        }
+        if (!Boolean.TRUE.equals(p.getSustentacionProgramada())) {
+            return new String[]{"Programa la sustentación",
+                    "El Jurado de Sustentación de {estudiante} ya fue designado. Coordina modalidad, lugar y fecha.", "calendar-check"};
+        }
+        if (!Boolean.TRUE.equals(p.getActaSustentacionSubida())) {
+            return new String[]{"Registra el Acta de sustentación",
+                    "Llegó el día de la sustentación de {estudiante}. Registra el resultado y sube el Acta firmada.", "gavel"};
+        }
+        return null;
     }
 
     @Override
@@ -104,8 +219,43 @@ public class NotificacionServiceImpl implements NotificacionService {
                             .id("secprogdef-" + tesisId)
                             .title("Programa la defensa del proyecto")
                             .description("Los revisores aprobaron el proyecto de " + estudiante
-                                    + ". Programa el Jurado Examinador y la fecha/hora/lugar de la defensa.")
+                                    + ". Programa la fecha, hora y lugar (o enlace) de la defensa.")
                             .link("/admin/secretaria-defensa").icon("calendar-check").fecha(hoy()).build());
+                }
+                // Tras la defensa: rúbricas por recepcionar, resultado por registrar y dictamen de aprobación.
+                if (defensaProgramada) {
+                    var pendiente = pendienteDeCierre(tesisId);
+                    if (pendiente != null) {
+                        out.add(NotificacionItem.builder()
+                                .id("cierre-" + tesisId)
+                                .title(pendiente[0])
+                                .description(pendiente[1].replace("{estudiante}", estudiante))
+                                .link("/admin/cierre-proyecto/" + tesisId).icon(pendiente[2]).fecha(hoy()).build());
+                    }
+                }
+                // Trámite del Jurado Informante y Dictamen de Expedito (Etapa 7).
+                boolean juradoInformeSolicitado = r.length > 13 && Boolean.TRUE.equals(r[13]);
+                if (juradoInformeSolicitado) {
+                    var pendienteJI = pendienteDeJuradoInforme(tesisId);
+                    if (pendienteJI != null) {
+                        out.add(NotificacionItem.builder()
+                                .id("jinforme-" + tesisId)
+                                .title(pendienteJI[0])
+                                .description(pendienteJI[1].replace("{estudiante}", estudiante))
+                                .link("/admin/jurado-informante/" + tesisId).icon(pendienteJI[2]).fecha(hoy()).build());
+                    }
+                }
+                // Trámite de Sustentación (Etapa 8, la última).
+                ProyectoTesis pSust = proyectoRepository.buscarPorTesisId(tesisId).orElse(null);
+                if (pSust != null && Boolean.TRUE.equals(pSust.getSustentacionSolicitada())) {
+                    var pendienteSust = pendienteDeSustentacion(tesisId, pSust);
+                    if (pendienteSust != null) {
+                        out.add(NotificacionItem.builder()
+                                .id("sustent-" + tesisId)
+                                .title(pendienteSust[0])
+                                .description(pendienteSust[1].replace("{estudiante}", estudiante))
+                                .link("/admin/sustentacion/" + tesisId).icon(pendienteSust[2]).fecha(hoy()).build());
+                    }
                 }
             }
             // Dictamen de designación de asesor por elaborar (el estudiante ya subió ambos firmados).
@@ -142,6 +292,30 @@ public class NotificacionServiceImpl implements NotificacionService {
             notificacionesSolicitudAsesor(persona, out);    // solicitud de asesoría por responder
         }
 
+        return out;
+    }
+
+    @Override
+    @Transactional
+    public List<NotificacionItem> notificacionesDeEstudiante(Persona persona) {
+        List<NotificacionItem> out = new ArrayList<>();
+        notificacionesEstudiante(persona, out);
+        return out;
+    }
+
+    @Override
+    @Transactional
+    public List<NotificacionItem> notificacionesDeAsesor(Persona persona) {
+        List<NotificacionItem> out = new ArrayList<>();
+        notificacionesAsesor(persona, out);
+        return out;
+    }
+
+    @Override
+    @Transactional
+    public List<NotificacionItem> notificacionesDeRevisor(Persona persona) {
+        List<NotificacionItem> out = new ArrayList<>();
+        notificacionesRevisor(persona, out);
         return out;
     }
 
@@ -184,7 +358,7 @@ public class NotificacionServiceImpl implements NotificacionService {
                     .id("carta-" + p.getId())
                     .title("Tu carta de opinión favorable está lista")
                     .description("Tu asesor emitió su carta de opinión favorable. Ya puedes subir el Turnitin y el proyecto final, y presentar tu solicitud de aprobación.")
-                    .link("/admin/mi-proyecto")
+                    .link("/admin/mi-tesis/cierre")
                     .icon("badge-check")
                     .fecha(hoy())
                     .build());
@@ -197,7 +371,7 @@ public class NotificacionServiceImpl implements NotificacionService {
                     .id("exprecibido-" + p.getId())
                     .title("Expediente recibido por Secretaría")
                     .description("Tu solicitud fue recibida y comunicada al Coordinador para la designación de revisores.")
-                    .link("/admin/mi-proyecto").icon("inbox").fecha(hoy()).build());
+                    .link("/admin/mi-tesis/cierre").icon("inbox").fecha(hoy()).build());
         }
 
         // Etapa 5: defensa programada.
@@ -208,8 +382,34 @@ public class NotificacionServiceImpl implements NotificacionService {
                     .title("Defensa del proyecto programada")
                     .description("Tu defensa fue programada para el " + cuando
                             + (p.getLugarDefensa() != null ? " en " + p.getLugarDefensa() : "") + ".")
-                    .link("/admin/mi-proyecto")
+                    .link("/admin/mi-tesis/cierre")
                     .icon("calendar-check")
+                    .fecha(hoy())
+                    .build());
+        }
+
+        // Etapa 5: resultado de la defensa y aprobación del proyecto.
+        if (Boolean.TRUE.equals(p.getDefensaRealizada()) && p.getResultadoDefensa() != null
+                && !Boolean.TRUE.equals(p.getProyectoAprobado())) {
+            boolean favorable = p.getResultadoDefensa().favorable();
+            out.add(NotificacionItem.builder()
+                    .id("resdefensa-" + p.getId())
+                    .title("Resultado de tu defensa: " + p.getResultadoDefensa().etiqueta().toLowerCase())
+                    .description(favorable
+                            ? "Tu proyecto fue aprobado en la defensa. La Secretaría emitirá el dictamen de aprobación."
+                            : "Tu proyecto fue desaprobado en la defensa. Los revisores lo evaluarán nuevamente: corrige las observaciones que te dejen.")
+                    .link(favorable ? "/admin/mi-tesis/cierre" : "/admin/mi-proyecto")
+                    .icon(favorable ? "badge-check" : "circle-alert")
+                    .fecha(hoy())
+                    .build());
+        }
+        if (Boolean.TRUE.equals(p.getProyectoAprobado())) {
+            out.add(NotificacionItem.builder()
+                    .id("proyaprob-" + p.getId())
+                    .title("Proyecto de tesis aprobado")
+                    .description("Se emitió el dictamen de aprobación de tu proyecto. Puedes iniciar la ejecución de la tesis.")
+                    .link("/admin/mi-tesis/ejecucion")
+                    .icon("stamp")
                     .fecha(hoy())
                     .build());
         }
@@ -220,7 +420,7 @@ public class NotificacionServiceImpl implements NotificacionService {
                     .id("informe-" + p.getId())
                     .title("Informe final aprobado")
                     .description("Tu asesor aprobó el informe final de tu tesis. Puedes continuar con el trámite de Jurado Informante.")
-                    .link("/admin/mi-proyecto")
+                    .link("/admin/mi-tesis/ejecucion")
                     .icon("badge-check")
                     .fecha(hoy())
                     .build());
@@ -256,7 +456,7 @@ public class NotificacionServiceImpl implements NotificacionService {
                     .title(conformes == 1 ? "Un revisor dio conformidad" : conformes + " revisores dieron conformidad")
                     .description("Tu proyecto está conforme para " + conformes + " de " + revisores.size()
                             + " revisor(es). Falta la conformidad del resto.")
-                    .link("/admin/mi-tesis/proyecto")
+                    .link("/admin/mi-tesis/cierre")
                     .icon("badge-check")
                     .fecha(hoy())
                     .build());
@@ -268,7 +468,7 @@ public class NotificacionServiceImpl implements NotificacionService {
                     .id("revok-" + p.getId())
                     .title("Los revisores aprobaron tu proyecto")
                     .description("Los revisores dieron conformidad a tu proyecto de tesis. Continúa con los siguientes pasos.")
-                    .link("/admin/mi-proyecto")
+                    .link("/admin/mi-tesis/cierre")
                     .icon("badge-check")
                     .fecha(hoy())
                     .build());
@@ -283,7 +483,7 @@ public class NotificacionServiceImpl implements NotificacionService {
                     .id("jurobs-" + p.getId())
                     .title("Observaciones del Jurado Informante")
                     .description(jurObs + " miembro(s) del Jurado Informante observaron tu informe final. Levanta las observaciones.")
-                    .link("/admin/mi-proyecto")
+                    .link("/admin/mi-tesis/ejecucion")
                     .icon("file-check")
                     .fecha(hoy())
                     .build());
@@ -292,8 +492,63 @@ public class NotificacionServiceImpl implements NotificacionService {
             out.add(NotificacionItem.builder()
                     .id("inforev-" + p.getId())
                     .title("Informe final aprobado por el Jurado Informante")
-                    .description("El Jurado Informante aprobó tu informe final. Puedes continuar con el trámite de expedito.")
-                    .link("/admin/mi-proyecto")
+                    .description("El Jurado Informante aprobó tu informe final. Secretaría está cerrando ese expediente; te avisaremos cuando tengas tu Dictamen de Expedito.")
+                    .link("/admin/mi-tesis/ejecucion")
+                    .icon("badge-check")
+                    .fecha(hoy())
+                    .build());
+        }
+
+        // Etapa 8: Dictamen de Expedito emitido → ya puede solicitar su Jurado de Sustentación.
+        boolean expeditoFirmado = dictamenExpeditoRepository.buscarPorTesisId(p.getTesisId())
+                .map(d -> d.getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.FIRMADO).orElse(false);
+        if (expeditoFirmado && !Boolean.TRUE.equals(p.getSustentacionSolicitada())) {
+            out.add(NotificacionItem.builder()
+                    .id("expedito-" + p.getId())
+                    .title("Ya estás expedito para sustentar")
+                    .description("Secretaría emitió tu Dictamen de Expedito. Solicita tu Jurado de Sustentación desde Ejecución de tesis.")
+                    .link("/admin/mi-tesis/ejecucion")
+                    .icon("badge-check")
+                    .fecha(hoy())
+                    .build());
+        }
+
+        // Etapa 8: sustentación programada.
+        if (Boolean.TRUE.equals(p.getSustentacionProgramada()) && p.getFechaSustentacion() != null
+                && !Boolean.TRUE.equals(p.getTesisConcluida())) {
+            String cuando = p.getFechaSustentacion().format(FECHA) + (p.getHoraSustentacion() != null ? " " + p.getHoraSustentacion() : "");
+            out.add(NotificacionItem.builder()
+                    .id("sustprog-" + p.getId())
+                    .title("Tu sustentación fue programada")
+                    .description("Tu sustentación de tesis fue programada para el " + cuando
+                            + (p.getLugarSustentacion() != null ? " en " + p.getLugarSustentacion() : "") + ".")
+                    .link("/admin/mi-tesis/ejecucion")
+                    .icon("calendar-check")
+                    .fecha(hoy())
+                    .build());
+        }
+
+        // Etapa 8: acto de sustentación desaprobado → Secretaría coordinará un nuevo acto.
+        if (Boolean.TRUE.equals(p.getActaSustentacionSubida()) && p.getResultadoSustentacion() != null
+                && !p.getResultadoSustentacion().favorable() && !Boolean.TRUE.equals(p.getTesisConcluida())) {
+            out.add(NotificacionItem.builder()
+                    .id("sustdesap-" + p.getId())
+                    .title("Resultado de tu sustentación: " + p.getResultadoSustentacion().etiqueta().toLowerCase())
+                    .description("Tu sustentación fue desaprobada. Secretaría coordinará contigo y tu Jurado un nuevo acto.")
+                    .link("/admin/mi-tesis/ejecucion")
+                    .icon("circle-alert")
+                    .fecha(hoy())
+                    .build());
+        }
+
+        // Etapa 8: tesis concluida (última notificación del proceso).
+        if (Boolean.TRUE.equals(p.getTesisConcluida())) {
+            out.add(NotificacionItem.builder()
+                    .id("concluida-" + p.getId())
+                    .title("¡Tu proceso de titulación ha concluido!")
+                    .description("Secretaría archivó el Acta de sustentación" + (p.getResultadoSustentacion() != null
+                            ? " · " + p.getResultadoSustentacion().etiqueta().toLowerCase() : "") + ". Tu tesis quedó sustentada.")
+                    .link("/admin/mi-tesis/ejecucion")
                     .icon("badge-check")
                     .fecha(hoy())
                     .build());
@@ -372,14 +627,13 @@ public class NotificacionServiceImpl implements NotificacionService {
     }
 
     /** Al revisor: proyectos donde el estudiante ya respondió sus observaciones y falta re-evaluar. */
-    /** Al Coordinador: proyectos que esperan su designación de revisores / programación de defensa / jurado informante. */
+    /** Al Coordinador: proyectos que esperan su designación de revisores / jurado informante / jurado de sustentación. */
     private void notificacionesCoordinador(List<NotificacionItem> out) {
         for (Object[] r : proyectoRepository.bandejaDefensa(null, 0, 50)) {
             UUID tesisId = (UUID) r[0];
+            UUID proyectoId = (UUID) r[1];
             String estudiante = ((asStr(r[2]) + " " + asStr(r[3])).trim() + ", " + asStr(r[4])).trim();
             int numRevisores = r.length > 9 && r[9] != null ? ((Number) r[9]).intValue() : 0;
-            boolean revisoresConformes = r.length > 10 && Boolean.TRUE.equals(r[10]);
-            boolean defensaProgramada = r.length > 11 && Boolean.TRUE.equals(r[11]);
             boolean juradoSolicitado = r.length > 13 && Boolean.TRUE.equals(r[13]);
             int numJuradoInforme = r.length > 14 && r[14] != null ? ((Number) r[14]).intValue() : 0;
 
@@ -391,11 +645,23 @@ public class NotificacionServiceImpl implements NotificacionService {
                         .link("/admin/coordinador-proyecto").icon("user-plus").fecha(hoy()).build());
             }
             // La programación de la defensa ya no es del coordinador (la hace la Secretaría).
-            if (juradoSolicitado && numJuradoInforme == 0) {
+            var p = proyectoRepository.buscarPorTesisId(tesisId).orElse(null);
+            if (p == null) continue;
+            boolean expedienteInformeRecibido = Boolean.TRUE.equals(p.getExpedienteInformeRecibido());
+            if (juradoSolicitado && expedienteInformeRecibido && numJuradoInforme == 0) {
                 out.add(NotificacionItem.builder()
                         .id("cordjur-" + tesisId)
                         .title("Designa el Jurado Informante")
                         .description(estudiante + " solicitó el Jurado Informante. Designa a los 3 miembros.")
+                        .link("/admin/coordinador-proyecto").icon("user-plus").fecha(hoy()).build());
+            }
+            boolean expedienteSustentacionRecibido = Boolean.TRUE.equals(p.getExpedienteSustentacionRecibido());
+            long numJuradoSustentacion = juradoSustentacionRepository.contarPorProyecto(proyectoId);
+            if (expedienteSustentacionRecibido && numJuradoSustentacion == 0) {
+                out.add(NotificacionItem.builder()
+                        .id("cordsust-" + tesisId)
+                        .title("Designa el Jurado de Sustentación")
+                        .description(estudiante + " solicitó su sustentación. Designa a los 3 miembros del Jurado.")
                         .link("/admin/coordinador-proyecto").icon("user-plus").fecha(hoy()).build());
             }
         }

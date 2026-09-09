@@ -42,4 +42,12 @@ export class CoordinadorProyectoService {
   designarJuradoInforme$(tesisId: string, docenteIds: string[]): Observable<any> {
     return this._http.post<any>(`${this.base}/${tesisId}/jurado-informe`, { docenteIds });
   }
+
+  juradoSustentacion$(tesisId: string): Observable<any> {
+    return this._http.get<any>(`${this.base}/${tesisId}/jurado-sustentacion`);
+  }
+
+  designarJuradoSustentacion$(tesisId: string, docenteIds: string[]): Observable<any> {
+    return this._http.post<any>(`${this.base}/${tesisId}/jurado-sustentacion`, { docenteIds });
+  }
 }

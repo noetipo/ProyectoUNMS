@@ -122,14 +122,21 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
 
         // Estado de los firmados subidos + dictamen (sobre la tesis activa).
         if (tesisId != null) {
+            boolean ambosSubidos = documentoTesisRepository.existePorTesisYTipo(tesisId, "SOLICITUD_ASESORIA_FIRMADA")
+                    && documentoTesisRepository.existePorTesisYTipo(tesisId, "CARTA_ACEPTACION_FIRMADA");
             b.solicitudFirmadaSubida(documentoTesisRepository.existePorTesisYTipo(tesisId, "SOLICITUD_ASESORIA_FIRMADA"));
             b.cartaFirmadaSubida(documentoTesisRepository.existePorTesisYTipo(tesisId, "CARTA_ACEPTACION_FIRMADA"));
             b.dictamenEmitido(documentoTesisRepository.existePorTesisYTipo(tesisId, "DICTAMEN_DESIGNACION_FIRMADO"));
-            dictamenRepository.buscarPorTesisId(tesisId).ifPresent(dic -> b
-                    .dictamenEstado(dic.getEstado() != null ? dic.getEstado().name() : null)
-                    .dictamenNumero(dic.getNumero())
-                    .dictamenFechaEmision(dic.getFechaEmision())
-                    .dictamenMotivoObservacion(dic.getMotivoObservacion()));
+            var dic = dictamenRepository.buscarPorTesisId(tesisId);
+            dic.ifPresent(d -> b
+                    .dictamenEstado(d.getEstado() != null ? d.getEstado().name() : null)
+                    .dictamenNumero(d.getNumero())
+                    .dictamenFechaEmision(d.getFechaEmision())
+                    .dictamenMotivoObservacion(d.getMotivoObservacion()));
+            // Falta enviar cuando no hay dictamen todavía, o cuando Secretaría lo observó y el
+            // estudiante ya volvió a subir lo corregido: en ambos casos espera su confirmación.
+            b.listoParaEnviar(ambosSubidos
+                    && (dic.isEmpty() || dic.get().getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.OBSERVADO));
         }
         return b.build();
     }
@@ -191,6 +198,12 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
         if (sol.getEstado() != EstadoSolicitud.ACEPTADA) {
             throw new BusinessException("Podrás subir los documentos firmados cuando el asesor acepte la asesoría");
         }
+        // Ya enviados a Secretaría (cualquier estado salvo OBSERVADO): no se pueden reemplazar
+        // por debajo mientras los están revisando o ya se resolvió el trámite.
+        var dicVigente = dictamenRepository.buscarPorTesisId(tesis.getId());
+        if (dicVigente.isPresent() && dicVigente.get().getEstado() != unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.OBSERVADO) {
+            throw new BusinessException("Ya enviaste tus documentos a Secretaría; espera su respuesta");
+        }
         String t = tipoFirmado(tipo);
         validarArchivo(contenido, contentType);
         String hash = sha256(contenido);
@@ -210,21 +223,33 @@ public class MiAsesoriaServiceImpl implements MiAsesoriaService {
         doc.setFechaCarga(java.time.LocalDateTime.now());
         doc.setSubidoPor(est.getPersonaId());
         documentoTesisRepository.save(doc);
+        // Subir ambos firmados los deja listos, pero no los envía: el estudiante confirma el
+        // envío aparte (ver enviarDocumentosFirmados), para no notificar a Secretaría en silencio.
+    }
 
-        // Con AMBOS firmados subidos → asegurar el dictamen (POR_ELABORAR); si estaba OBSERVADO, reactivar.
-        if (documentoTesisRepository.tieneFirmadosCompletos(tesis.getId())) {
-            var dic = dictamenRepository.buscarPorTesisId(tesis.getId());
-            if (dic.isEmpty()) {
-                dictamenRepository.save(unmsm.edu.pe.tesis.domain.entities.DictamenDesignacion.builder()
-                        .tesisId(tesis.getId())
-                        .estado(unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.POR_ELABORAR)
-                        .build());
-            } else if (dic.get().getEstado() == unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.OBSERVADO) {
-                var d = dic.get();
-                d.setEstado(unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.POR_ELABORAR);
-                d.setMotivoObservacion(null);
-                dictamenRepository.save(d);
-            }
+    @Override
+    @Transactional
+    public void enviarDocumentosFirmados() {
+        Estudiante est = estudianteActual();
+        Tesis tesis = tesisRepository.tesisActivaDeEstudiante(est.getPersonaId())
+                .orElseThrow(() -> new BusinessException("No tienes una tesis activa"));
+        if (!documentoTesisRepository.tieneFirmadosCompletos(tesis.getId())) {
+            throw new BusinessException("Sube la solicitud y la carta de aceptación firmadas antes de enviarlas");
+        }
+        var dic = dictamenRepository.buscarPorTesisId(tesis.getId());
+        if (dic.isPresent() && dic.get().getEstado() != unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.OBSERVADO) {
+            throw new BusinessException("Ya enviaste tus documentos a la Secretaría");
+        }
+        if (dic.isEmpty()) {
+            dictamenRepository.save(unmsm.edu.pe.tesis.domain.entities.DictamenDesignacion.builder()
+                    .tesisId(tesis.getId())
+                    .estado(unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.POR_ELABORAR)
+                    .build());
+        } else {
+            var d = dic.get();
+            d.setEstado(unmsm.edu.pe.tesis.domain.enums.EstadoDictamen.POR_ELABORAR);
+            d.setMotivoObservacion(null);
+            dictamenRepository.save(d);
         }
     }
 

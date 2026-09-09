@@ -1,6 +1,7 @@
 import { CdkConnectedOverlay, CdkOverlayOrigin } from '@angular/cdk/overlay';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { Component, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { Router } from '@angular/router';
@@ -100,17 +101,42 @@ interface Notif {
 export class Notifications implements OnInit {
   private _http = inject(HttpClient);
   private _router = inject(Router);
+  private readonly navegador = isPlatformBrowser(inject(PLATFORM_ID));
+
+  private static readonly VISTAS = 'notificaciones:vistas';
 
   protected open = signal(false);
   protected notifications = signal<Notif[]>([]);
 
+  /**
+   * Notificaciones ya abiertas, para no volver a mostrarlas y que la campanita no se aglomere.
+   * No hay tabla de notificaciones en el backend (se calculan en caliente según el estado del
+   * expediente), así que "leída" se guarda aquí, en el navegador. La huella incluye la
+   * descripción, no solo el id: si la situación cambia (p. ej. una observación nueva del mismo
+   * revisor), dice algo distinto y vuelve a aparecer en vez de quedar oculta para siempre.
+   */
+  private vistas = new Set<string>();
+
   ngOnInit(): void {
+    if (this.navegador) {
+      try {
+        const guardado = localStorage.getItem(Notifications.VISTAS);
+        if (guardado) this.vistas = new Set(JSON.parse(guardado));
+      } catch { /* localStorage corrupto o inaccesible: se ignora */ }
+    }
     this.cargar();
+  }
+
+  private huella(n: Notif): string {
+    return n.id + '|' + n.description;
   }
 
   cargar(): void {
     this._http.get<any>(environment.url + END_POINTS.notificaciones.base).subscribe({
-      next: (res) => this.notifications.set(res?.data ?? res ?? []),
+      next: (res) => {
+        const todas: Notif[] = res?.data ?? res ?? [];
+        this.notifications.set(todas.filter((n) => !this.vistas.has(this.huella(n))));
+      },
       error: () => this.notifications.set([]),
     });
   }
@@ -124,6 +150,11 @@ export class Notifications implements OnInit {
   }
 
   abrir(n: Notif) {
+    this.vistas.add(this.huella(n));
+    this.notifications.update((list) => list.filter((x) => x !== n));
+    if (this.navegador) {
+      try { localStorage.setItem(Notifications.VISTAS, JSON.stringify([...this.vistas])); } catch { /* noop */ }
+    }
     if (n.link) {
       this._router.navigateByUrl(n.link);
     }

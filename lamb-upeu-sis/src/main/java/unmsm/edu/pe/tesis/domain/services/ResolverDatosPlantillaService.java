@@ -107,6 +107,96 @@ public class ResolverDatosPlantillaService {
         return m;
     }
 
+    /** Marcadores del Dictamen de aprobación del proyecto (se resuelve al elaborarlo, tras la defensa). */
+    public Map<String, String> resolverDictamenAprobacion(
+            unmsm.edu.pe.tesis.domain.entities.DictamenAprobacion dic,
+            unmsm.edu.pe.tesis.domain.entities.ProyectoTesis proyecto,
+            Tesis tesis, Estudiante e, java.util.List<String> revisores, LocalDate fecha) {
+        Persona pe = e != null ? e.getPersona() : null;
+        ProgramaPosgrado prog = e != null ? e.getPrograma() : null;
+        String nivelEnum = tesis != null && tesis.getNivel() != null ? tesis.getNivel().name()
+                : (prog != null && prog.getNivel() != null ? prog.getNivel().name() : null);
+
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("FACULTAD", facultad(prog));
+        m.put("NIVEL_SECCION", FormatoDocumentos.nivelSeccion(nivelEnum));
+        m.put("CIUDAD", parametro("CIUDAD_EMISION", ""));
+        m.put("FECHA_LARGA", FormatoDocumentos.fechaLarga(fecha));
+        m.put("ANIO", FormatoDocumentos.anio(fecha));
+        m.put("NUMERO_DICTAMEN", nz(dic.getNumero()));
+        m.put("EXPEDIENTE", nz(dic.getExpediente()));
+        m.put("CONSIDERANDOS", parametro("CONSIDERANDOS_DICTAMEN", ""));
+
+        LocalDate defensa = proyecto != null ? proyecto.getFechaDefensa() : null;
+        m.put("FECHA_DEFENSA", defensa != null ? FormatoDocumentos.fechaLarga(defensa) + " del " + defensa.getYear() : "");
+        m.put("MODALIDAD", proyecto != null && proyecto.getModalidadDefensa() != null
+                ? proyecto.getModalidadDefensa().etiqueta().toLowerCase() : "");
+        m.put("RESULTADO", proyecto != null && proyecto.getResultadoDefensa() != null
+                ? proyecto.getResultadoDefensa().etiqueta().toUpperCase() : "");
+        m.put("REVISORES", revisores != null && !revisores.isEmpty()
+                ? String.join(" y ", revisores) : "designados por el Coordinador del Programa");
+        m.put("VIGENCIA", dic.getVigenciaHasta() != null
+                ? FormatoDocumentos.fechaLarga(dic.getVigenciaHasta()) + " del " + dic.getVigenciaHasta().getYear() : "");
+
+        m.put("TITULO_TESIS", tesis != null ? nz(tesis.getTitulo()) : "");
+        m.put("TRATAMIENTO_ESTUDIANTE", pe != null ? FormatoDocumentos.tratamientoPorSexo(pe.getSexo() != null ? pe.getSexo().name() : null) : "");
+        m.put("NOMBRE_ESTUDIANTE", nombresApellidos(pe));
+        m.put("PROGRAMA", prog != null ? FormatoDocumentos.programaConNivel(nivelEnum, prog.getNombre()) : "");
+        m.put("NOMBRE_DIRECTOR", nombreDirector());
+        m.put("PIE", parametro("PIE_DICTAMEN", ""));
+        return m;
+    }
+
+    /** Marcadores comunes a los dictámenes de designación de jurado (Informante / Sustentación) y al de Expedito. */
+    private Map<String, String> comunesDictamenJurado(String numero, String expediente,
+                                                        Tesis tesis, Estudiante e,
+                                                        java.util.List<String> jurado, LocalDate fecha) {
+        Persona pe = e != null ? e.getPersona() : null;
+        ProgramaPosgrado prog = e != null ? e.getPrograma() : null;
+        String nivelEnum = tesis != null && tesis.getNivel() != null ? tesis.getNivel().name()
+                : (prog != null && prog.getNivel() != null ? prog.getNivel().name() : null);
+
+        Map<String, String> m = new LinkedHashMap<>();
+        m.put("FACULTAD", facultad(prog));
+        m.put("NIVEL_SECCION", FormatoDocumentos.nivelSeccion(nivelEnum));
+        m.put("CIUDAD", parametro("CIUDAD_EMISION", ""));
+        m.put("FECHA_LARGA", FormatoDocumentos.fechaLarga(fecha));
+        m.put("ANIO", FormatoDocumentos.anio(fecha));
+        m.put("NUMERO_DICTAMEN", nz(numero));
+        m.put("EXPEDIENTE", nz(expediente));
+        m.put("CONSIDERANDOS", parametro("CONSIDERANDOS_DICTAMEN", ""));
+        m.put("JURADO", jurado != null && !jurado.isEmpty()
+                ? String.join(", ", jurado) : "los miembros designados por el Coordinador del Programa");
+        m.put("TITULO_TESIS", tesis != null ? nz(tesis.getTitulo()) : "");
+        m.put("TRATAMIENTO_ESTUDIANTE", pe != null ? FormatoDocumentos.tratamientoPorSexo(pe.getSexo() != null ? pe.getSexo().name() : null) : "");
+        m.put("NOMBRE_ESTUDIANTE", nombresApellidos(pe));
+        m.put("PROGRAMA", prog != null ? FormatoDocumentos.programaConNivel(nivelEnum, prog.getNombre()) : "");
+        m.put("NOMBRE_DIRECTOR", nombreDirector());
+        m.put("PIE", parametro("PIE_DICTAMEN", ""));
+        return m;
+    }
+
+    /** Marcadores del Dictamen de designación del Jurado Informante (Etapa 7). */
+    public Map<String, String> resolverDictamenJuradoInforme(
+            unmsm.edu.pe.tesis.domain.entities.DictamenJuradoInforme dic,
+            Tesis tesis, Estudiante e, java.util.List<String> jurado, LocalDate fecha) {
+        return comunesDictamenJurado(dic.getNumero(), dic.getExpediente(), tesis, e, jurado, fecha);
+    }
+
+    /** Marcadores del Dictamen de Expedito (puente Etapa 7 → 8). */
+    public Map<String, String> resolverDictamenExpedito(
+            unmsm.edu.pe.tesis.domain.entities.DictamenExpedito dic,
+            Tesis tesis, Estudiante e, java.util.List<String> juradoInforme, LocalDate fecha) {
+        return comunesDictamenJurado(dic.getNumero(), dic.getExpediente(), tesis, e, juradoInforme, fecha);
+    }
+
+    /** Marcadores del Dictamen de designación del Jurado de Sustentación (Etapa 8). */
+    public Map<String, String> resolverDictamenSustentacion(
+            unmsm.edu.pe.tesis.domain.entities.DictamenSustentacion dic,
+            Tesis tesis, Estudiante e, java.util.List<String> jurado, LocalDate fecha) {
+        return comunesDictamenJurado(dic.getNumero(), dic.getExpediente(), tesis, e, jurado, fecha);
+    }
+
     // ── comunes a ambos documentos ─────────────────────────────────────────
     private Map<String, String> comunes(SolicitudAsesoria sol, LocalDate fecha, Tesis tesis) {
         Estudiante e = sol.getEstudiante();

@@ -15,6 +15,7 @@ export function previsualizarBlob(dialog: MatDialog, blob: Blob, nombre: string)
   dialog.open(DocumentoPreviewDialogComponent, {
     // El Blob viaja además del object URL: el visor de Word lo necesita para renderizarlo.
     data: { nombre, url, esPdf: mime.includes('pdf'), mime, blob },
-    maxWidth: '92vw',
+    maxWidth: '96vw',
+    maxHeight: '92vh',
   }).afterClosed().subscribe(() => setTimeout(() => URL.revokeObjectURL(url), 1000));
 }

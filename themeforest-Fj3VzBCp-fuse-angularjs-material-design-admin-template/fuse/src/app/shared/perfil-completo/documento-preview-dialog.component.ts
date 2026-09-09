@@ -35,7 +35,7 @@ export type DocumentoPreviewData = {
   standalone: true,
   imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatTooltipModule],
   template: `
-    <div class="flex flex-col max-h-[85vh] w-[min(90vw,860px)]">
+    <div class="flex flex-col h-[92vh] w-[min(96vw,1200px)]">
 
       <div class="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-100">
         <h2 class="text-sm font-semibold text-slate-800 truncate" [title]="data.nombre">
@@ -54,14 +54,14 @@ export type DocumentoPreviewData = {
 
       <div class="flex-1 overflow-auto bg-slate-50 flex items-center justify-center p-4">
         @if (data.esPdf) {
-          <iframe [src]="safeUrl" class="w-full h-[70vh] rounded-lg border border-slate-200 bg-white"
+          <iframe [src]="safeUrl" class="w-full h-full rounded-lg border border-slate-200 bg-white"
                   [title]="data.nombre"></iframe>
         } @else if (esImagen) {
           <img [src]="data.url" [alt]="data.nombre"
-               class="max-w-full max-h-[70vh] object-contain rounded-lg shadow-sm" />
+               class="max-w-full max-h-full object-contain rounded-lg shadow-sm" />
         } @else if (esWord && !errorDocx()) {
           <!-- Word: se renderiza a HTML en el propio modal. -->
-          <div class="w-full h-[70vh] overflow-auto rounded-lg border border-slate-200 bg-white">
+          <div class="w-full h-full overflow-auto rounded-lg border border-slate-200 bg-white">
             @if (cargandoDocx()) {
               <div class="flex flex-col items-center justify-center h-full gap-2 text-slate-400">
                 <mat-icon svgIcon="loader" class="!size-8 animate-spin" />

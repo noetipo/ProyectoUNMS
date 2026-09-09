@@ -50,6 +50,7 @@ public class RevisorProyectoServiceImpl implements RevisorProyectoService {
     @Inject unmsm.edu.pe.tesis.infrastructure.export.ProyectoDocumentoExporter documentoExporter;
     @Inject ProyectoEditorAssembler assembler;
     @Inject AsesorDesignadoService asesorDesignado;
+    @Inject AsesorRolService asesorRolService;
     @Inject unmsm.edu.pe.tesis.domain.repositories.PlantillaRubricaRepository plantillaRepository;
     @Inject unmsm.edu.pe.tesis.domain.services.PlantillaRubricaService plantillaService;
 
@@ -65,7 +66,12 @@ public class RevisorProyectoServiceImpl implements RevisorProyectoService {
     public List<RevisorBandejaItem> bandeja() {
         UUID docenteId = docenteActual().getPersonaId();
         List<RevisorBandejaItem> out = new ArrayList<>();
-        for (Object[] r : revisorRepository.bandejaDeRevisor(docenteId)) {
+        List<Object[]> filas = revisorRepository.bandejaDeRevisor(docenteId);
+        if (!filas.isEmpty()) {
+            // Auto-repara designaciones anteriores a que el rol se otorgara al designar.
+            asesorRolService.otorgarRolRevisor(docenteId);
+        }
+        for (Object[] r : filas) {
             out.add(RevisorBandejaItem.builder()
                     .tesisId((UUID) r[0])
                     .proyectoId((UUID) r[1])
@@ -151,6 +157,10 @@ public class RevisorProyectoServiceImpl implements RevisorProyectoService {
                         .orElseGet(() -> plantillaRepository.vigente(rubrica.enfoque())
                                 .map(pl -> pl.getNombreOriginal()).orElse(null)))
                 .respuestaEstudiante(rv.getRespuestaEstudiante())
+                // Si los demás ya dieron conformidad, mi decisión cierra la revisión del proyecto.
+                .ultimoPendiente(revisorRepository.listarPorProyecto(p.getId()).stream()
+                        .filter(x -> !x.getId().equals(rv.getId()))
+                        .allMatch(x -> x.getEstado() == EstadoRevisor.CONFORME))
                 .build();
     }
 
@@ -293,6 +303,19 @@ public class RevisorProyectoServiceImpl implements RevisorProyectoService {
         // Observar exige al menos una observación (por criterio) o un comentario general.
         Map<String, String> observaciones = req.getObservaciones() != null ? req.getObservaciones() : java.util.Map.of();
         boolean hayObservacion = observaciones.values().stream().anyMatch(o -> o != null && !o.isBlank());
+        // Un criterio que no cumple del todo, sin observación, deja al estudiante sin saber qué
+        // corregir: el ítem del editor se queda con el estado que tenía antes (a veces CONFORME
+        // de una etapa previa) en vez de pasar a OBSERVADO, y el alumno no tiene a dónde ir.
+        if (!req.isConforme()) {
+            for (RubricaDefinicion.Criterio c : rubrica.criterios()) {
+                RubricaDefinicion.Nivel nivel = RubricaDefinicion.Nivel.valueOf(nivelPorCriterio.get(c.key()));
+                boolean sinObservacion = observaciones.get(c.key()) == null || observaciones.get(c.key()).isBlank();
+                if (nivel != RubricaDefinicion.Nivel.CUMPLE && sinObservacion) {
+                    throw new ValidationException("Escribe una observación en «" + c.titulo()
+                            + "»: lo calificaste como " + nivel.name().toLowerCase().replace('_', ' '));
+                }
+            }
+        }
         boolean comentarioVacio = req.getComentario() == null || req.getComentario().isBlank();
         if (!req.isConforme() && comentarioVacio && !hayObservacion) {
             throw new ValidationException("Escribe al menos una observación para el estudiante");

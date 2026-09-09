@@ -173,6 +173,67 @@ import { MiProyectoService } from '../services/mi-proyecto.service';
                 }
               </section>
             </div>
+
+            <!-- Seguimiento de la Etapa 5, un paso a la vez: aquí es donde tiene sentido verlo,
+                 porque es a donde se llega DESPUÉS de enviar el expediente arriba — no en el
+                 editor del proyecto, que ya quedó atrás. Nunca deja al doctorando adivinando qué
+                 sigue: cada estado dice explícitamente qué está esperando. -->
+            @if (p.expedienteRecibido) {
+              <section class="rounded-xl border border-[#8C1D2E]/25 bg-[#FDF6F7] p-4">
+                <div class="flex items-center gap-2 mb-2">
+                  <mat-icon svgIcon="gavel" class="size-4 text-[#8C1D2E]" />
+                  <p class="text-[13px] font-bold text-[#8C1D2E]">Etapa 5 · Defensa del proyecto</p>
+                </div>
+
+                @if (p.proyectoAprobado) {
+                  <div class="flex items-start gap-2 text-[12.5px] text-emerald-700">
+                    <mat-icon svgIcon="badge-check" class="size-4 shrink-0 mt-px" />
+                    <span>
+                      Tu proyecto fue <b>aprobado</b>@if (p.dictamenNumero) { · {{ p.dictamenNumero }} }.
+                      Ya puedes iniciar la <b>ejecución de tu tesis</b> desde la pestaña <b>Ejecución de tesis</b>.
+                    </span>
+                  </div>
+                } @else if (p.resultadoDefensa === 'DESAPROBADO') {
+                  <div class="flex items-start gap-2 text-[12.5px] text-rose-700">
+                    <mat-icon svgIcon="circle-x" class="size-4 shrink-0 mt-px" />
+                    <span>Tu proyecto fue <b>desaprobado</b> en la defensa. Conversa con tu asesor sobre los siguientes pasos.</span>
+                  </div>
+                } @else if (p.defensaRealizada) {
+                  <div class="flex items-start gap-2 text-[12.5px] text-slate-700">
+                    <mat-icon svgIcon="clock" class="size-4 shrink-0 mt-px text-amber-500" />
+                    <span>
+                      Tu defensa fue {{ p.resultadoDefensaLabel?.toLowerCase() ?? 'evaluada' }}.
+                      Secretaría está elaborando el <b>dictamen de aprobación</b>; te avisaremos por aquí cuando esté.
+                    </span>
+                  </div>
+                } @else if (p.defensaProgramada) {
+                  <p class="text-[13px] text-slate-700">
+                    {{ p.fechaDefensa | date:'EEEE d \\'de\\' MMMM \\'de\\' y' }}<span *ngIf="p.horaDefensa"> · {{ p.horaDefensa }}</span>
+                    <span *ngIf="p.modalidadDefensaLabel"> · {{ p.modalidadDefensaLabel }}</span>
+                    <span *ngIf="p.lugarDefensa"> · {{ p.lugarDefensa }}</span>
+                  </p>
+                  @if (p.enlaceDefensa) { <p class="text-[11.5px] text-slate-500 mt-0.5">Enlace: {{ p.enlaceDefensa }}</p> }
+                  <div class="flex items-start gap-2 text-[12px] text-slate-500 mt-2 pt-2 border-t border-[#8C1D2E]/10">
+                    <mat-icon svgIcon="info" class="size-4 shrink-0 mt-px text-[#8C1D2E]" />
+                    <span>Después de sustentar, espera a que Secretaría registre el resultado y emita el dictamen de aprobación. Te avisaremos por aquí — no hace falta que vuelvas a preguntar.</span>
+                  </div>
+                } @else if (p.revisoresConformes) {
+                  <p class="text-[12.5px] text-slate-600">
+                    Los dos revisores dieron conformidad a tu proyecto. Espera a que <b>Secretaría programe tu defensa</b> — te avisaremos por aquí.
+                  </p>
+                } @else if (conformesRevisores() > 0) {
+                  <p class="text-[12.5px] text-slate-600">
+                    {{ conformesRevisores() }} de {{ p.evaluacionesRevisores?.length ?? 2 }} revisores ya dieron conformidad.
+                    Falta el resto para poder programar tu defensa.
+                  </p>
+                } @else {
+                  <p class="text-[12.5px] text-slate-600">
+                    El Coordinador designará a tus dos revisores, quienes evaluarán tu proyecto con la rúbrica oficial.
+                    Si observan algo, te avisaremos y podrás corregirlo desde <b>Mi proyecto</b>.
+                  </p>
+                }
+              </section>
+            }
           } @else {
             <p class="text-sm text-slate-400">Cargando…</p>
           }
@@ -204,6 +265,10 @@ export class CierreEnvioComponent implements OnInit {
   });
 
   protected listos = computed(() => this.requisitos().filter((r) => r.ok).length);
+
+  /** Cuántos revisores ya dieron conformidad, mientras se espera al resto. */
+  protected conformesRevisores = computed(() =>
+    (this.e()?.evaluacionesRevisores ?? []).filter((r: any) => r.estado === 'CONFORME').length);
 
   protected puedeSolicitar = computed(() => {
     const p = this.e();

@@ -162,6 +162,16 @@ const routes: Routes = [
               import('@/app/views/dashboard/mi-proyecto/components/cierre-envio.component').then((m) => m.CierreEnvioComponent),
           },
           {
+            path: 'ejecucion',
+            loadComponent: () =>
+              import('@/app/views/dashboard/mi-proyecto/components/ejecucion-tesis.component').then((m) => m.EjecucionTesisComponent),
+          },
+          {
+            path: 'sustentacion',
+            loadComponent: () =>
+              import('@/app/views/dashboard/mi-proyecto/components/sustentacion-tesis.component').then((m) => m.SustentacionTesisComponent),
+          },
+          {
             path: 'asesoria',
             loadComponent: () =>
               import('@/app/views/dashboard/mi-asesoria/components/mi-asesoria.component').then((m) => m.MiAsesoriaComponent),
@@ -217,6 +227,19 @@ const routes: Routes = [
           import('@/app/views/dashboard/secretaria-defensa/components/secretaria-defensa.component').then((m) => m.SecretariaDefensaComponent),
       },
       {
+        // Tramo final de la Etapa 5: rúbricas de la defensa, dictamen de aprobación y archivo.
+        path: 'cierre-proyecto',
+        canActivate: [roleGuard('SECRETARIA', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/cierre-proyecto/components/cierre-bandeja.component').then((m) => m.CierreBandejaComponent),
+      },
+      {
+        path: 'cierre-proyecto/:tesisId',
+        canActivate: [roleGuard('SECRETARIA', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/cierre-proyecto/components/cierre-detalle.component').then((m) => m.CierreDetalleComponent),
+      },
+      {
         path: 'coordinador-proyecto',
         canActivate: [roleGuard('COORDINADOR', 'ADMIN')],
         loadComponent: () =>
@@ -257,6 +280,30 @@ const routes: Routes = [
         canActivate: [roleGuard('DOCENTE', 'ADMIN')],
         loadComponent: () =>
           import('@/app/views/dashboard/jurado-informe/components/jurado-informe-evaluar.component').then((m) => m.JuradoInformeEvaluarComponent),
+      },
+      {
+        path: 'jurado-informante',
+        canActivate: [roleGuard('SECRETARIA', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/jurado-informante/components/jurado-informante-bandeja.component').then((m) => m.JuradoInformanteBandejaComponent),
+      },
+      {
+        path: 'jurado-informante/:tesisId',
+        canActivate: [roleGuard('SECRETARIA', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/jurado-informante/components/jurado-informante-detalle.component').then((m) => m.JuradoInformanteDetalleComponent),
+      },
+      {
+        path: 'sustentacion',
+        canActivate: [roleGuard('SECRETARIA', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/sustentacion/components/sustentacion-bandeja.component').then((m) => m.SustentacionBandejaComponent),
+      },
+      {
+        path: 'sustentacion/:tesisId',
+        canActivate: [roleGuard('SECRETARIA', 'ADMIN')],
+        loadComponent: () =>
+          import('@/app/views/dashboard/sustentacion/components/sustentacion-detalle.component').then((m) => m.SustentacionDetalleComponent),
       },
 
       // -----------------------------------------------------------------------

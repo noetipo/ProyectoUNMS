@@ -46,6 +46,10 @@ import { Expediente } from '../../expediente/models/expediente.model';
                 <span class="size-1.5 rounded-full bg-white/90 animate-ping"></span> NUEVO
               </span>
             }
+            @if ((t.path === 'asesoria' && asesoriaLista()) || (t.path === 'proyecto' && proyectoListo())) {
+              <mat-icon svgIcon="circle-check" class="size-3.5 text-emerald-500"
+                        title="Ya no hay nada pendiente aquí" />
+            }
           </a>
         }
 
@@ -95,7 +99,28 @@ export class MiTesisComponent implements OnInit {
   protected habilitado = computed(() => this.etapa() >= 4);
   /** El cierre del expediente se abre con la carta de opinión favorable del asesor. */
   protected cierre = signal(false);
+  /** La ejecución (informe final, avance, Jurado Informante) empieza cuando el proyecto es aprobado. */
+  protected ejecucionHabilitada = computed(() => this.etapa() >= 6);
+  /**
+   * Sustentación (Etapa 8, la última) — no puede depender de la etapa en curso: esta pestaña es
+   * justo donde el alumno SOLICITA el trámite, así que tiene que aparecer antes de que lo haga
+   * (en cuanto tenga el Dictamen de Expedito firmado), no recién después.
+   */
+  private sustentacionHabilitadaSig = signal(false);
+  protected sustentacionHabilitada = computed(() => this.sustentacionHabilitadaSig());
   protected esNuevo = computed(() => this.habilitado() && !this.visto());
+  /** Un revisor o el Jurado Informante puede reabrir trabajo en "Mi proyecto" después del cierre. */
+  private pendienteCorreccion = signal(false);
+
+  /** "Mi asesoría" ya no requiere nada del alumno una vez que llegó el dictamen del asesor. */
+  protected asesoriaLista = computed(() => this.habilitado());
+  /**
+   * "Mi proyecto" ya no requiere nada del alumno una vez que el asesor dio su opinión favorable
+   * — salvo que un revisor o el Jurado Informante haya dejado una observación pendiente ahí: sin
+   * este chequeo, un aviso podía mandarlo de vuelta a corregir un ítem justo cuando la pestaña
+   * mostraba el check de "nada pendiente", una contradicción confusa.
+   */
+  protected proyectoListo = computed(() => this.cierre() && !this.pendienteCorreccion());
 
   /**
    * Orden = <b>el orden en que se habilitan</b>, para que la barra se lea como el camino a
@@ -110,6 +135,8 @@ export class MiTesisComponent implements OnInit {
     { path: 'asesoria', label: 'Mi asesoría', icon: 'handshake', paso: 1 },
     ...(this.habilitado() ? [{ path: 'proyecto', label: 'Mi proyecto', icon: 'file-pen-line', paso: 2 }] : []),
     ...(this.cierre() ? [{ path: 'cierre', label: 'Cierre y envío', icon: 'send', paso: 3 }] : []),
+    ...(this.ejecucionHabilitada() ? [{ path: 'ejecucion', label: 'Ejecución de tesis', icon: 'rocket', paso: 4 }] : []),
+    ...(this.sustentacionHabilitada() ? [{ path: 'sustentacion', label: 'Sustentación', icon: 'graduation-cap', paso: 5 }] : []),
   ]);
 
   /** Qué falta para llegar a la Etapa 4, en las palabras del proceso. */
@@ -128,6 +155,8 @@ export class MiTesisComponent implements OnInit {
         const e: Expediente | null = res?.data ?? res ?? null;
         this.etapa.set(e?.etapaEnCurso ?? (e?.proyectoHabilitado ? 4 : 1));
         this.cierre.set(!!e?.cierreHabilitado);
+        this.pendienteCorreccion.set(!!e?.proyectoPendienteCorreccion);
+        this.sustentacionHabilitadaSig.set(!!e?.sustentacionHabilitada);
         this.cargado.set(true);
         this.protegerRuta();
       },

@@ -109,9 +109,23 @@ export class JuradoInformeEvaluarComponent implements OnInit {
   evaluar(conforme: boolean): void {
     if (!this.valido() || this.guardando()) return;
     if (!conforme && !this.comentario.trim()) { this._toast.error('Escribe las observaciones para el estudiante'); return; }
+    // El tercer voto conforme da por revisado el informe final: conviene advertirlo.
+    const ultimo = conforme && !!this.d()?.ultimoPendiente;
     this._confirm.confirmSave({
       title: conforme ? 'Dar conformidad al informe final' : 'Observar el informe final',
-      message: conforme ? 'Registrarás tu conformidad. Una vez dada, tu evaluación queda cerrada. ¿Continuar?' : 'Registrarás tus observaciones para que el estudiante las corrija. ¿Continuar?',
+      message: conforme
+        ? (ultimo ? 'Eres el último miembro que falta. Al confirmar:' : 'Registrarás tu conformidad. Al confirmar:')
+        : 'Registrarás tus observaciones. Al confirmar:',
+      details: conforme
+        ? (ultimo
+            ? ['el informe final queda revisado por el Jurado Informante',
+               'el doctorando puede continuar con la sustentación',
+               'tu evaluación se cierra y ya no podrás observar']
+            : ['tu evaluación se cierra y ya no podrás observar',
+               'el informe sigue en espera de los demás miembros'])
+        : ['el informe vuelve al doctorando para que lo corrija',
+           'podrás revisarlo de nuevo cuando responda'],
+      confirmLabel: conforme ? 'Sí, dar conformidad' : 'Registrar observaciones',
     }).then(() => {
       this.guardando.set(true);
       this._svc.evaluar$(this.tesisId, this.puntaje!, this.comentario.trim(), conforme).subscribe({

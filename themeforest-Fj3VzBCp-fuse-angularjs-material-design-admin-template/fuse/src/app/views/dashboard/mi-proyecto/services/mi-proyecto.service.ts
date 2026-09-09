@@ -85,6 +85,9 @@ export class MiProyectoService {
   responderJuradoInforme$(revisorId: string, respuesta: string): Observable<any> {
     return this._http.post<any>(`${this.base}/jurado-informante/${revisorId}/responder`, { respuesta });
   }
+  solicitarSustentacion$(): Observable<any> {
+    return this._http.post<any>(`${this.base}/sustentacion/solicitar`, {});
+  }
   subirTurnitin$(file: File, porcentaje: number): Observable<any> {
     const fd = new FormData();
     fd.append('archivo', file, file.name);
@@ -101,8 +104,8 @@ export class MiProyectoService {
     fd.append('archivo', file, file.name);
     return this._http.post<any>(`${this.base}/informe-final`, fd);
   }
-  /** Ver/descargar un documento propio subido (turnitin | proyecto-final). */
-  descargarDocumento$(tipo: 'turnitin' | 'proyecto-final'): Observable<Blob> {
+  /** Ver/descargar un documento propio subido (turnitin | proyecto-final | informe-final). */
+  descargarDocumento$(tipo: 'turnitin' | 'proyecto-final' | 'informe-final'): Observable<Blob> {
     return this._http.get(`${this.base}/documentos/${tipo}`, { responseType: 'blob' });
   }
   /** La rúbrica (en blanco) con la que evaluarán el proyecto: "¿cómo me evalúan?". */

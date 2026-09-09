@@ -64,6 +64,7 @@ class DatabaseSeederTest {
     @Mock unmsm.edu.pe.tesis.domain.repositories.TesisRepository tesisRepository;
     @Mock unmsm.edu.pe.tesis.domain.repositories.TesisAutorRepository tesisAutorRepository;
     @Mock unmsm.edu.pe.tesis.domain.repositories.SugerenciaAsesorRepository sugerenciaAsesorRepository;
+    @Mock unmsm.edu.pe.tesis.domain.repositories.PlantillaRubricaRepository plantillaRubricaRepository;
     @Mock jakarta.persistence.EntityManager entityManager;
     @Mock PasswordEncoder passwordEncoder;
 
@@ -130,10 +131,11 @@ class DatabaseSeederTest {
         }
 
         @Test
-        void guarda33Modulos() {
+        void guarda37Modulos() {
             mockAllNew();
             seeder.onStart(event);
-            verify(moduleRepository, times(33)).save(any(Module.class));
+            // Etapa 7 → 8: trámite del Jurado Informante/Expedito y Sustentación de tesis (Secretaría).
+            verify(moduleRepository, times(37)).save(any(Module.class));
         }
 
         @Test
@@ -158,10 +160,11 @@ class DatabaseSeederTest {
         }
 
         @Test
-        void guarda69AsignacionesRoleModule() {
+        void guarda78AsignacionesRoleModule() {
             mockAllNew();
             seeder.onStart(event);
-            verify(roleModuleRepository, times(69)).save(any(RoleModule.class));
+            // +2 módulos nuevos × 2 roles (ADMIN y SECRETARIA) = +4 asignaciones.
+            verify(roleModuleRepository, times(78)).save(any(RoleModule.class));
         }
 
         @Test

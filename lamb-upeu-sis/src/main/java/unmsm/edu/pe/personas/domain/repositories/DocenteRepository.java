@@ -9,6 +9,9 @@ import java.util.UUID;
 public interface DocenteRepository {
     Docente save(Docente docente);
     Optional<Docente> findByPersonaId(UUID personaId);
+
+    /** Todos los docentes con persona activa (para el scheduler de correos: recorre a cada uno). */
+    List<Docente> listarTodosActivos();
     boolean existsByPersonaId(UUID personaId);
     boolean existsByCodigoSistema(String codigoSistema);
     boolean existsByEmailInstitucional(String emailInstitucional);

@@ -4,27 +4,23 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import unmsm.edu.pe.personas.domain.storage.AlmacenamientoArchivos;
-import unmsm.edu.pe.personas.domain.entities.LineaInvestigacion;
-import unmsm.edu.pe.personas.domain.entities.Persona;
 import unmsm.edu.pe.shared.exceptions.BusinessException;
 import unmsm.edu.pe.shared.exceptions.NotFoundException;
 import unmsm.edu.pe.shared.exceptions.ValidationException;
 import unmsm.edu.pe.shared.response.PageResponse;
 import unmsm.edu.pe.tesis.application.dto.DefensaInfo;
-import unmsm.edu.pe.tesis.application.dto.DocenteOpcion;
 import unmsm.edu.pe.tesis.application.dto.ExpedienteBandejaItem;
 import unmsm.edu.pe.tesis.application.dto.JuradoItem;
 import unmsm.edu.pe.tesis.application.dto.ProgramarDefensaRequest;
 import unmsm.edu.pe.tesis.application.dto.RubricaBandejaItem;
-import unmsm.edu.pe.tesis.domain.entities.Asesoria;
 import unmsm.edu.pe.tesis.domain.entities.DocumentoTesis;
-import unmsm.edu.pe.tesis.domain.entities.ProyectoJurado;
 import unmsm.edu.pe.tesis.domain.entities.ProyectoTesis;
-import unmsm.edu.pe.tesis.domain.entities.Tesis;
-import unmsm.edu.pe.tesis.domain.enums.RolJurado;
+import unmsm.edu.pe.tesis.domain.entities.RubricaDefensa;
+import unmsm.edu.pe.tesis.domain.enums.ModalidadDefensa;
 import unmsm.edu.pe.tesis.domain.repositories.DocumentoTesisRepository;
 import unmsm.edu.pe.tesis.domain.repositories.ProyectoRevisorRepository;
 import unmsm.edu.pe.tesis.domain.repositories.ProyectoTesisRepository;
+import unmsm.edu.pe.tesis.domain.repositories.RubricaDefensaRepository;
 import unmsm.edu.pe.tesis.domain.services.SecretariaDefensaService;
 
 import java.time.LocalDate;
@@ -39,13 +35,10 @@ public class SecretariaDefensaServiceImpl implements SecretariaDefensaService {
 
     @Inject ProyectoTesisRepository proyectoRepository;
     @Inject ProyectoRevisorRepository revisorRepository;
+    @Inject RubricaDefensaRepository rubricaRepository;
     @Inject DocumentoTesisRepository documentoTesisRepository;
     @Inject AlmacenamientoArchivos almacenamiento;
     @Inject unmsm.edu.pe.personas.domain.repositories.PersonaRepository personaRepository;
-    @Inject unmsm.edu.pe.tesis.domain.repositories.ProyectoJuradoRepository juradoRepository;
-    @Inject unmsm.edu.pe.tesis.domain.repositories.AsesoriaRepository asesoriaRepository;
-    @Inject unmsm.edu.pe.tesis.domain.repositories.TesisRepository tesisRepository;
-    @Inject unmsm.edu.pe.personas.domain.repositories.DocenteRepository docenteRepository;
     @Inject unmsm.edu.pe.tesis.domain.repositories.PlantillaRubricaRepository plantillaRepository;
 
     @Override
@@ -185,41 +178,30 @@ public class SecretariaDefensaServiceImpl implements SecretariaDefensaService {
     @Transactional
     public DefensaInfo defensa(UUID tesisId) {
         ProyectoTesis p = proyecto(tesisId);
-        List<JuradoItem> jurado = juradoRepository.listarPorProyecto(p.getId()).stream()
-                .map(j -> {
-                    Persona pe = personaRepository.buscarPorId(j.getDocenteId()).orElse(null);
-                    return JuradoItem.builder()
-                            .docenteId(j.getDocenteId())
-                            .docenteNombre(pe != null ? nombre(pe.getNombres(), pe.getApellidoPaterno(), pe.getApellidoMaterno()) : null)
-                            .rol(j.getRolJurado() != null ? j.getRolJurado().name() : null)
-                            .orden(j.getOrden())
-                            .build();
-                })
-                .collect(Collectors.toList());
         return DefensaInfo.builder()
                 .programada(Boolean.TRUE.equals(p.getDefensaProgramada()))
                 .fecha(p.getFechaDefensa()).hora(p.getHoraDefensa()).lugar(p.getLugarDefensa())
+                .modalidad(p.getModalidadDefensa() != null ? p.getModalidadDefensa().name() : null)
+                .modalidadLabel(p.getModalidadDefensa() != null ? p.getModalidadDefensa().etiqueta() : null)
+                .enlace(p.getEnlaceDefensa())
                 .dictamenNumero(p.getDictamenNumero())
-                .jurado(jurado)
+                .jurado(evaluadoresDeLaDefensa(p.getId()))
                 .build();
     }
 
-    @Override
-    @Transactional
-    public List<DocenteOpcion> docentesDefensa(UUID tesisId) {
-        // Solo docentes de la línea de investigación de la tesis (mismo criterio que revisores).
-        UUID lineaId = tesisRepository.buscarPorId(tesisId)
-                .map(Tesis::getLineaInvestigacion)
-                .map(LineaInvestigacion::getId)
-                .orElse(null);
-        List<Object[]> filas = lineaId != null
-                ? revisorRepository.docentesOpcionPorLinea(lineaId)
-                : List.of();
-        return filas.stream()
-                .map(r -> DocenteOpcion.builder()
-                        .id((UUID) r[0])
-                        .nombre(nombre(asStr(r[1]), asStr(r[2]), asStr(r[3])))
-                        .categoria(r[4] != null ? r[4].toString() : null)
+    /**
+     * Quiénes evalúan la defensa: los mismos dos revisores que ya evaluaron el proyecto con la
+     * rúbrica (el diagrama del proceso no contempla un jurado aparte para este paso — eso es de
+     * la Sustentación final, Etapa 8). Se listan aquí solo para informar, no para elegir a nadie.
+     */
+    private List<JuradoItem> evaluadoresDeLaDefensa(UUID proyectoId) {
+        return revisorRepository.listarPorProyecto(proyectoId).stream()
+                .sorted(java.util.Comparator.comparing(rv -> rv.getOrden() != null ? rv.getOrden() : 0))
+                .map(rv -> JuradoItem.builder()
+                        .docenteId(rv.getDocenteId())
+                        .docenteNombre(nombreDocente(rv.getDocenteId()))
+                        .rol("REVISOR")
+                        .orden(rv.getOrden())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -234,46 +216,53 @@ public class SecretariaDefensaServiceImpl implements SecretariaDefensaService {
         if (Boolean.TRUE.equals(p.getDefensaProgramada())) {
             throw new BusinessException("La defensa de este proyecto ya fue programada");
         }
-        if (req == null || req.getPresidenteId() == null || req.getMiembroIds() == null || req.getFecha() == null) {
-            throw new ValidationException("Indica presidente, 2 miembros y la fecha de la defensa");
+        if (req == null || req.getFecha() == null) {
+            throw new ValidationException("Indica la fecha de la defensa");
         }
-        List<UUID> miembros = new ArrayList<>(new java.util.LinkedHashSet<>(req.getMiembroIds()));
-        if (miembros.size() != 2) {
-            throw new ValidationException("Debes designar exactamente 2 miembros (distintos)");
+        // La modalidad decide qué dato de ubicación es obligatorio: aula, enlace o ambos.
+        ModalidadDefensa modalidad = modalidadDe(req.getModalidad());
+        String lugar = req.getLugar() != null ? req.getLugar().trim() : "";
+        String enlace = req.getEnlace() != null ? req.getEnlace().trim() : "";
+        if (modalidad.requiereLugar() && lugar.isEmpty()) {
+            throw new ValidationException("Indica el aula o ambiente donde se realizará la defensa");
         }
-        if (miembros.contains(req.getPresidenteId())) {
-            throw new ValidationException("El presidente no puede ser también miembro");
+        if (modalidad.requiereEnlace() && enlace.isEmpty()) {
+            throw new ValidationException("Indica el enlace de la sesión para la defensa " + modalidad.etiqueta().toLowerCase());
         }
-        UUID asesorId = asesoriaRepository.buscarPorTesisYTipo(tesisId, "ASESOR")
-                .map(Asesoria::getDocenteId).orElse(null);
 
-        List<UUID> jurado = new ArrayList<>();
-        jurado.add(req.getPresidenteId());
-        jurado.addAll(miembros);
-        for (UUID docenteId : jurado) {
-            if (docenteRepository.findByPersonaId(docenteId).isEmpty()) {
-                throw new ValidationException("Uno de los docentes del jurado no existe");
+        // Si esta es una reprogramación tras una defensa desaprobada, el resultado y las rúbricas
+        // del acto anterior quedan sin efecto: el próximo acto es uno nuevo, no una continuación.
+        p.setDefensaRealizada(false);
+        p.setResultadoDefensa(null);
+        p.setFechaResultadoDefensa(null);
+        p.setObservacionDefensa(null);
+        for (RubricaDefensa r : rubricaRepository.porTesis(tesisId)) {
+            if (r.getStorageKey() != null) {
+                almacenamiento.eliminar(r.getStorageKey());
             }
         }
-
-        int orden = 1;
-        juradoRepository.save(ProyectoJurado.builder()
-                .proyectoId(p.getId()).docenteId(req.getPresidenteId()).rolJurado(RolJurado.PRESIDENTE).orden(orden++).build());
-        for (UUID m : miembros) {
-            juradoRepository.save(ProyectoJurado.builder()
-                    .proyectoId(p.getId()).docenteId(m).rolJurado(RolJurado.MIEMBRO).orden(orden++).build());
-        }
-        if (asesorId != null) {
-            juradoRepository.save(ProyectoJurado.builder()
-                    .proyectoId(p.getId()).docenteId(asesorId).rolJurado(RolJurado.ASESOR).orden(orden++).build());
-        }
+        rubricaRepository.eliminarPorTesis(tesisId);
 
         p.setDefensaProgramada(true);
         p.setFechaDefensa(req.getFecha());
         p.setHoraDefensa(req.getHora());
-        p.setLugarDefensa(req.getLugar());
+        p.setLugarDefensa(lugar.isEmpty() ? null : lugar);
+        p.setModalidadDefensa(modalidad);
+        p.setEnlaceDefensa(enlace.isEmpty() ? null : enlace);
         p.setDictamenNumero(generarDictamen(p.getId(), req.getFecha()));
         proyectoRepository.save(p);
+    }
+
+    /** Sin modalidad indicada se asume presencial, que es como se venía programando. */
+    private ModalidadDefensa modalidadDe(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return ModalidadDefensa.PRESENCIAL;
+        }
+        try {
+            return ModalidadDefensa.valueOf(valor.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new ValidationException("Modalidad no válida");
+        }
     }
 
     private ProyectoTesis proyecto(UUID tesisId) {

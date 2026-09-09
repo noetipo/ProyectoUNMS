@@ -85,6 +85,10 @@ public class InformeJuradoServiceImpl implements InformeJuradoService {
                 .respuestaEstudiante(rv.getRespuestaEstudiante())
                 .cerrada(rv.getEstado() == EstadoRevisor.CONFORME)
                 .puntajeMaximo(PUNTAJE_MAX)
+                // Si los otros dos ya dieron conformidad, mi decisión da por revisado el informe.
+                .ultimoPendiente(informeRevisorRepository.listarPorProyecto(p.getId()).stream()
+                        .filter(x -> !x.getId().equals(rv.getId()))
+                        .allMatch(x -> x.getEstado() == EstadoRevisor.CONFORME))
                 .build();
     }
 

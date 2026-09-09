@@ -69,6 +69,8 @@ export interface MiAsesoria {
   // Firmados subidos por el estudiante + dictamen
   solicitudFirmadaSubida?: boolean;
   cartaFirmadaSubida?: boolean;
+  /** Ambos firmados subidos, a la espera de que el estudiante confirme el envío a Secretaría. */
+  listoParaEnviar?: boolean;
   dictamenEstado?: string | null;   // POR_ELABORAR | ELABORADO | FIRMADO | OBSERVADO
   dictamenEmitido?: boolean;
   dictamenNumero?: string | null;

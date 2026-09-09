@@ -38,5 +38,18 @@ public class ExpedienteResponse {
      * en su propia pantalla y no dentro del editor del proyecto.
      */
     private boolean cierreHabilitado;
+    /**
+     * true si aún hay una observación (de asesor, revisor o Jurado Informante) por corregir en el
+     * editor del proyecto. El trámite de cierre puede estar habilitado (carta ya emitida) y aun así
+     * seguir habiendo correcciones pendientes ahí: "Mi proyecto" no debe marcarse como terminado
+     * mientras esto sea true, o el doctorando ve una señal de "nada pendiente" contradictoria justo
+     * antes de que un aviso lo mande de vuelta a corregir algo.
+     */
+    private boolean proyectoPendienteCorreccion;
+    /**
+     * true cuando el Dictamen de Expedito ya está firmado: el doctorando puede solicitar su
+     * Jurado de Sustentación. Antes de eso la pestaña "Sustentación" no tiene nada que ofrecer.
+     */
+    private boolean sustentacionHabilitada;
     private List<EtapaItem> etapas;
 }

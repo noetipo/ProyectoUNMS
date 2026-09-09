@@ -361,7 +361,8 @@ export class PerfilCompletoFormComponent implements OnDestroy {
     this._dialog.open(DocumentoPreviewDialogComponent, {
       panelClass: ['dialog-anim'],
       autoFocus: false,
-      maxWidth: '92vw',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
       data: { nombre: file.name, url, esPdf: file.type === 'application/pdf', mime: file.type },
     });
   }

@@ -153,8 +153,39 @@ public class ProyectoTesis extends AuditableEntity {
     @Column(name = "lugar_defensa", length = 200)
     private String lugarDefensa;
 
+    /** Presencial, virtual o híbrida: de ella dependen el ambiente y el enlace de la sesión. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modalidad_defensa", length = 20)
+    private unmsm.edu.pe.tesis.domain.enums.ModalidadDefensa modalidadDefensa;
+
+    @Column(name = "enlace_defensa", length = 300)
+    private String enlaceDefensa;
+
     @Column(name = "dictamen_numero", length = 60)
     private String dictamenNumero;
+
+    // ── Etapa 5 · paso 6: resultado de la defensa (lo registra la Secretaría) ──
+    /** La defensa ya se realizó y su resultado quedó registrado. */
+    @Column(name = "defensa_realizada")
+    private Boolean defensaRealizada;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resultado_defensa", length = 30)
+    private unmsm.edu.pe.tesis.domain.enums.ResultadoDefensa resultadoDefensa;
+
+    @Column(name = "fecha_resultado_defensa")
+    private LocalDate fechaResultadoDefensa;
+
+    /** Acuerdos del acto: observaciones a subsanar o motivo de la desaprobación. */
+    @Column(name = "observacion_defensa", length = 600)
+    private String observacionDefensa;
+
+    // ── Etapa 5 · paso 7: cierre (dictamen de aprobación firmado y expediente archivado) ──
+    @Column(name = "proyecto_aprobado")
+    private Boolean proyectoAprobado;
+
+    @Column(name = "fecha_aprobacion_proyecto")
+    private LocalDate fechaAprobacionProyecto;
 
     // ── Etapa 6 · ejecución de la tesis ──
     /** El asesor aprobó el informe final (carta) con el plan 100% ejecutado. */
@@ -172,10 +203,84 @@ public class ProyectoTesis extends AuditableEntity {
     @Column(name = "fecha_jurado_informante")
     private LocalDate fechaJuradoInformante;
 
-    /** Los 3 miembros del Jurado Informante aprobaron el informe final. */
+    /**
+     * Los 3 miembros del Jurado Informante aprobaron el informe final. Como el Presidente es uno
+     * de los 3, su "opinión favorable" queda dada por su propia conformidad — no hace falta un
+     * paso aparte para la carta del Presidente.
+     */
     @Column(name = "informe_final_revisado")
     private Boolean informeFinalRevisado;
 
     @Column(name = "fecha_informe_revisado")
     private LocalDate fechaInformeRevisado;
+
+    // ── Etapa 7 · cierre del trámite del Jurado Informante (lo hace la Secretaría) ──
+    /** La Secretaría recibió el expediente del Jurado Informante y comunicó al Coordinador. */
+    @Column(name = "expediente_informe_recibido")
+    private Boolean expedienteInformeRecibido;
+
+    @Column(name = "fecha_recepcion_informe")
+    private LocalDate fechaRecepcionInforme;
+
+    /** Secretaría archivó el expediente del Jurado Informante (carta, informe, rúbricas, Turnitin). */
+    @Column(name = "informe_final_archivado")
+    private Boolean informeFinalArchivado;
+
+    @Column(name = "fecha_archivo_informe")
+    private LocalDate fechaArchivoInforme;
+
+    // ── Etapa 8 · Sustentación de la tesis ──
+    /** El estudiante solicitó el Jurado de Sustentación (requiere el Dictamen de Expedito firmado). */
+    @Column(name = "sustentacion_solicitada")
+    private Boolean sustentacionSolicitada;
+
+    @Column(name = "fecha_solicitud_sustentacion")
+    private LocalDate fechaSolicitudSustentacion;
+
+    /** La Secretaría recibió el expediente de sustentación y comunicó al Coordinador. */
+    @Column(name = "expediente_sustentacion_recibido")
+    private Boolean expedienteSustentacionRecibido;
+
+    @Column(name = "fecha_recepcion_sustentacion")
+    private LocalDate fechaRecepcionSustentacion;
+
+    @Column(name = "sustentacion_programada")
+    private Boolean sustentacionProgramada;
+
+    @Column(name = "fecha_sustentacion")
+    private LocalDate fechaSustentacion;
+
+    @Column(name = "hora_sustentacion", length = 10)
+    private String horaSustentacion;
+
+    @Column(name = "lugar_sustentacion", length = 200)
+    private String lugarSustentacion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modalidad_sustentacion", length = 20)
+    private unmsm.edu.pe.tesis.domain.enums.ModalidadDefensa modalidadSustentacion;
+
+    @Column(name = "enlace_sustentacion", length = 300)
+    private String enlaceSustentacion;
+
+    /** El Jurado calificó y suscribió el Acta; la Secretaría la subió a la plataforma. */
+    @Column(name = "acta_sustentacion_subida")
+    private Boolean actaSustentacionSubida;
+
+    @Column(name = "fecha_acta_sustentacion")
+    private LocalDate fechaActaSustentacion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resultado_sustentacion", length = 30)
+    private unmsm.edu.pe.tesis.domain.enums.ResultadoDefensa resultadoSustentacion;
+
+    @Column(name = "observacion_acta", length = 600)
+    private String observacionActa;
+
+    /** Secretaría archivó el Acta + informe final: el proceso de titulación queda concluido. */
+    @Column(name = "tesis_concluida")
+    private Boolean tesisConcluida;
+
+    @Column(name = "fecha_conclusion_tesis")
+    private LocalDate fechaConclusionTesis;
 }

@@ -21,6 +21,12 @@ public interface MiAsesoriaService {
     /** El estudiante sube uno de sus documentos firmados (tipo = solicitud | carta). Permite reemplazar. */
     void subirFirmado(String tipo, byte[] contenido, String nombreOriginal, String contentType);
 
+    /**
+     * Confirma el envío a Secretaría de los documentos firmados. Requiere que ambos estén
+     * subidos; no se dispara solo con subirlos, para que el estudiante decida el momento.
+     */
+    void enviarDocumentosFirmados();
+
     /** Descarga el dictamen firmado emitido por la secretaría (valida propiedad). */
     unmsm.edu.pe.tesis.application.dto.ArchivoDescargable descargarDictamenEmitido();
 }

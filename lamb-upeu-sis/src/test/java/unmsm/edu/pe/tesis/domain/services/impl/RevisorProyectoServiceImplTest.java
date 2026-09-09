@@ -84,6 +84,13 @@ class RevisorProyectoServiceImplTest {
         lenient().when(revisorRepository.buscarPorProyectoYDocente(PROY, DOC)).thenReturn(Optional.of(revisor));
         // La rúbrica oficial ya está subida (habilitada) por defecto.
         lenient().when(documentoTesisRepository.existePorTesisYTipo(any(), any())).thenReturn(true);
+        // Por defecto no hay hilo previo para ningún campo; al observar por rúbrica se crea uno.
+        lenient().when(revisionRepository.buscarPorProyectoYCampo(any(), any())).thenReturn(Optional.empty());
+        lenient().when(revisionRepository.save(any())).thenAnswer(i -> {
+            ProyectoRevision r = i.getArgument(0);
+            if (r.getId() == null) r.setId(UUID.randomUUID());
+            return r;
+        });
     }
 
     /** Todos los criterios de la rúbrica cuantitativa en un mismo nivel. */
@@ -101,14 +108,60 @@ class RevisorProyectoServiceImplTest {
         return r;
     }
 
+    /** Una observación por cada criterio de la rúbrica (todas con el mismo texto). */
+    private Map<String, String> observacionesParaTodos(String texto) {
+        Map<String, String> m = new HashMap<>();
+        for (RubricaDefinicion.Criterio c : RubricaDefinicion.CUANTITATIVA.criterios()) {
+            m.put(c.key(), texto);
+        }
+        return m;
+    }
+
     @Test
     void evaluar_observar_conComentario_guardaObservadoYTotal() {
-        service.evaluar(TESIS, req(niveles(RubricaDefinicion.Nivel.PARCIAL), "Precisar la muestra", false));
+        EvaluarRevisorRequest r = req(niveles(RubricaDefinicion.Nivel.PARCIAL), "Precisar la muestra", false);
+        r.setObservaciones(observacionesParaTodos("Precisar este punto"));
+
+        service.evaluar(TESIS, r);
 
         assertEquals(EstadoRevisor.OBSERVADO, revisor.getEstado());
         assertEquals(65, revisor.getPuntajeTotal());   // todos PARCIAL
         verify(puntajeRepository).eliminarPorRevisor(REV);
         verify(puntajeRepository, times(NUM_CRITERIOS)).save(any());
+    }
+
+    @Test
+    void evaluar_comentarioGeneralSinObservacionPorCriterio_falla() {
+        // Bug real encontrado en producción: un comentario general no basta. Sin una observación
+        // propia por cada criterio bajo "Cumple", el ítem del alumno se queda sin saber qué
+        // corregir (a veces incluso mostrando "✓ CONFORME" de una evaluación previa).
+        assertThrows(ValidationException.class, () -> service.evaluar(TESIS,
+                req(niveles(RubricaDefinicion.Nivel.PARCIAL), "Comentario general nomás", false)));
+        verify(revisorRepository, never()).save(any());
+    }
+
+    @Test
+    void evaluar_observacionSoloEnAlgunosCriterios_falla() {
+        Map<String, String> niveles = niveles(RubricaDefinicion.Nivel.PARCIAL);
+        String primero = RubricaDefinicion.CUANTITATIVA.criterios().get(0).key();
+        EvaluarRevisorRequest r = req(niveles, null, false);
+        r.setObservaciones(Map.of(primero, "Corrige esto"));   // deja el resto sin observación
+
+        assertThrows(ValidationException.class, () -> service.evaluar(TESIS, r));
+        verify(revisorRepository, never()).save(any());
+    }
+
+    @Test
+    void evaluar_soloUnCriterioNoCumple_bastaConObservarEse() {
+        Map<String, String> niveles = niveles(RubricaDefinicion.Nivel.CUMPLE);
+        String primero = RubricaDefinicion.CUANTITATIVA.criterios().get(0).key();
+        niveles.put(primero, RubricaDefinicion.Nivel.PARCIAL.name());
+        EvaluarRevisorRequest r = req(niveles, null, false);
+        r.setObservaciones(Map.of(primero, "Precisar la muestra"));
+
+        service.evaluar(TESIS, r);
+
+        assertEquals(EstadoRevisor.OBSERVADO, revisor.getEstado());
     }
 
     @Test
@@ -217,13 +270,6 @@ class RevisorProyectoServiceImplTest {
 
     @Test
     void observarItem_marcaObservadoYRegistraEventoDeRevisor() {
-        when(revisionRepository.buscarPorProyectoYCampo(PROY, "objGeneral")).thenReturn(Optional.empty());
-        when(revisionRepository.save(any())).thenAnswer(i -> {
-            ProyectoRevision r = i.getArgument(0);
-            if (r.getId() == null) r.setId(UUID.randomUUID());
-            return r;
-        });
-
         service.observarItem(TESIS, obsReq("objGeneral", "Precisa el objetivo general"));
 
         assertEquals(EstadoRevisor.OBSERVADO, revisor.getEstado());

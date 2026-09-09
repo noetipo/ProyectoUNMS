@@ -31,6 +31,7 @@ public class ProyectoEditorAssembler {
     @Inject ProyectoRevisorRepository revisorRepository;
     @Inject ProyectoAvanceRepository avanceRepository;
     @Inject InformeRevisorRepository informeRevisorRepository;
+    @Inject unmsm.edu.pe.tesis.domain.repositories.JuradoSustentacionRepository juradoSustentacionRepository;
     @Inject unmsm.edu.pe.personas.domain.repositories.PersonaRepository personaRepository;
     @Inject unmsm.edu.pe.personas.domain.repositories.DocenteRepository docenteRepository;
     @Inject unmsm.edu.pe.personas.domain.repositories.DocenteLineaInvestigacionRepository docenteLineaRepository;
@@ -213,6 +214,12 @@ public class ProyectoEditorAssembler {
                 .defensaProgramada(Boolean.TRUE.equals(p.getDefensaProgramada()))
                 .fechaDefensa(p.getFechaDefensa()).horaDefensa(p.getHoraDefensa())
                 .lugarDefensa(p.getLugarDefensa()).dictamenNumero(p.getDictamenNumero())
+                .modalidadDefensaLabel(p.getModalidadDefensa() != null ? p.getModalidadDefensa().etiqueta() : null)
+                .enlaceDefensa(p.getEnlaceDefensa())
+                .defensaRealizada(Boolean.TRUE.equals(p.getDefensaRealizada()))
+                .resultadoDefensa(p.getResultadoDefensa() != null ? p.getResultadoDefensa().name() : null)
+                .resultadoDefensaLabel(p.getResultadoDefensa() != null ? p.getResultadoDefensa().etiqueta() : null)
+                .proyectoAprobado(Boolean.TRUE.equals(p.getProyectoAprobado()))
                 .informeFinalSubido(documentoTesisRepository.existePorTesisYTipo(p.getTesisId(), "INFORME_FINAL_TESIS"))
                 .informeFinalAprobado(Boolean.TRUE.equals(p.getInformeFinalAprobado()))
                 .juradoInformanteSolicitado(Boolean.TRUE.equals(p.getJuradoInformanteSolicitado()))
@@ -233,6 +240,30 @@ public class ProyectoEditorAssembler {
                                         + nzi(a.getPuntajeAnalisis()) + nzi(a.getPuntajeInterpretacion()))
                                 .porcentajePlan(a.getPorcentajePlan()).comentario(a.getComentario()).build())
                         .toList())
+                .sustentacionSolicitada(Boolean.TRUE.equals(p.getSustentacionSolicitada()))
+                .expedienteSustentacionRecibido(Boolean.TRUE.equals(p.getExpedienteSustentacionRecibido()))
+                .juradoSustentacion(juradoSustentacionRepository.listarPorProyecto(p.getId()).stream()
+                        .sorted(java.util.Comparator.comparing(rv -> rv.getOrden() != null ? rv.getOrden() : 0))
+                        .map(rv -> {
+                            var peJurado = personaRepository.buscarPorId(rv.getDocenteId()).orElse(null);
+                            return JuradoItem.builder()
+                                    .docenteId(rv.getDocenteId())
+                                    .docenteNombre(peJurado != null ? nombre(peJurado) : null)
+                                    .rol(Boolean.TRUE.equals(rv.getPresidente()) ? "PRESIDENTE" : "MIEMBRO")
+                                    .orden(rv.getOrden())
+                                    .build();
+                        })
+                        .toList())
+                .sustentacionProgramada(Boolean.TRUE.equals(p.getSustentacionProgramada()))
+                .fechaSustentacion(p.getFechaSustentacion()).horaSustentacion(p.getHoraSustentacion())
+                .lugarSustentacion(p.getLugarSustentacion())
+                .modalidadSustentacionLabel(p.getModalidadSustentacion() != null ? p.getModalidadSustentacion().etiqueta() : null)
+                .enlaceSustentacion(p.getEnlaceSustentacion())
+                .actaSustentacionSubida(Boolean.TRUE.equals(p.getActaSustentacionSubida()))
+                .fechaActaSustentacion(p.getFechaActaSustentacion())
+                .resultadoSustentacionLabel(p.getResultadoSustentacion() != null ? p.getResultadoSustentacion().etiqueta() : null)
+                .tesisConcluida(Boolean.TRUE.equals(p.getTesisConcluida()))
+                .fechaConclusionTesis(p.getFechaConclusionTesis())
                 .puedeMarcarListo(pct >= 100)
                 .todosConformes(Boolean.TRUE.equals(p.getListoRevision()) && todosItemsConformes)
                 .build();

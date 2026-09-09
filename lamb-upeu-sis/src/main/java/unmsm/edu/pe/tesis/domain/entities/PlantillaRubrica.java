@@ -63,7 +63,7 @@ public class PlantillaRubrica extends AuditableEntity {
      * cualquier entorno, sin depender de una carpeta de uploads.</p>
      */
     @com.fasterxml.jackson.annotation.JsonIgnore
-    @Column(name = "contenido")
+    @Column(name = "contenido", length = 20_971_520)
     private byte[] contenido;
 
     /** Legado: ruta en el almacenamiento de archivos (las primeras versiones se guardaron ahí). */

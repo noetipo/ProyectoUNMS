@@ -69,12 +69,19 @@ public class ProyectoEditorResponse {
     private List<RevisorEvalItem> evaluacionesRevisores;
     private boolean revisoresConformes; // ambos revisores dieron conformidad
 
-    // Etapa 5 · defensa programada
+    // Etapa 5 · defensa programada, realizada y cierre del proyecto
     private boolean defensaProgramada;
     private java.time.LocalDate fechaDefensa;
     private String horaDefensa;
     private String lugarDefensa;
+    private String modalidadDefensaLabel;
+    private String enlaceDefensa;
     private String dictamenNumero;
+    private boolean defensaRealizada;
+    private String resultadoDefensa;       // APROBADO | APROBADO_CON_OBSERVACIONES | DESAPROBADO
+    private String resultadoDefensaLabel;
+    /** El dictamen de aprobación quedó firmado y el proyecto archivado: recién aquí abre la Etapa 6. */
+    private boolean proyectoAprobado;
 
     // Etapa 6 · ejecución
     private boolean informeFinalSubido;
@@ -91,6 +98,22 @@ public class ProyectoEditorResponse {
     private boolean juradoInformanteSolicitado;
     private boolean informeFinalRevisado;
     private List<InformeRevisorItem> evaluacionesJuradoInforme;
+
+    // Etapa 8 · Sustentación de la tesis (la última)
+    private boolean sustentacionSolicitada;
+    private boolean expedienteSustentacionRecibido;
+    private List<JuradoItem> juradoSustentacion;
+    private boolean sustentacionProgramada;
+    private java.time.LocalDate fechaSustentacion;
+    private String horaSustentacion;
+    private String lugarSustentacion;
+    private String modalidadSustentacionLabel;
+    private String enlaceSustentacion;
+    private boolean actaSustentacionSubida;
+    private java.time.LocalDate fechaActaSustentacion;
+    private String resultadoSustentacionLabel;
+    private boolean tesisConcluida;
+    private java.time.LocalDate fechaConclusionTesis;
 
     // Derivados para gating de la UI
     private boolean puedeMarcarListo;   // avancePct >= 100

@@ -27,6 +27,11 @@ public class DocenteRepositoryImpl implements DocenteRepository, PanacheReposito
     }
 
     @Override
+    public List<Docente> listarTodosActivos() {
+        return list("persona.active = true");
+    }
+
+    @Override
     public boolean existsByPersonaId(UUID personaId) {
         return personaId != null && count("personaId = ?1", personaId) > 0;
     }

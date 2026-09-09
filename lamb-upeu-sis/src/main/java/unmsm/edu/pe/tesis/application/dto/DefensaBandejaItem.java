@@ -32,4 +32,8 @@ public class DefensaBandejaItem {
     private int numJuradoInforme;        // miembros del Jurado Informante designados
     private boolean juradoInformeDesignado; // numJuradoInforme >= 3
     private boolean informeFinalRevisado;   // los 3 aprobaron el informe
+    // Etapa 8 · Sustentación (la última)
+    private boolean expedienteSustentacionRecibido; // Secretaría recepcionó y comunicó al Coordinador
+    private int numJuradoSustentacion;
+    private boolean juradoSustentacionDesignado; // numJuradoSustentacion >= 3
 }

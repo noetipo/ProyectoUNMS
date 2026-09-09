@@ -27,4 +27,6 @@ public class EvaluacionRevisorResponse {
     private boolean rubricaDisponible;             // Secretaría ya subió la rúbrica oficial → habilita evaluar
     private String rubricaNombreArchivo;           // nombre del Excel subido (para descargar)
     private String respuestaEstudiante;            // levantamiento del estudiante a mis observaciones
+    /** Soy el único revisor que falta: mi conformidad da por aprobado el proyecto. */
+    private boolean ultimoPendiente;
 }

@@ -65,32 +65,43 @@ interface DialogData {
         }
       </div>
 
-      <!-- Los dos puestos de la tesis, siempre visibles: uno de asesor y uno de co-asesor. -->
+      <!-- Los dos puestos de la tesis: mientras no haya designación, se pueden sugerir varios
+           candidatos por puesto para que el doctorando elija a quién solicitar. -->
       <div class="grid grid-cols-2 gap-2 mb-3">
         <div class="rounded-lg border px-2.5 py-1.5"
              [ngClass]="asesorTomado() ? 'border-[#8C1D2E]/20 bg-[#FDF6F7]' : 'border-dashed border-slate-200'">
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Asesor</p>
-          <p class="text-[11.5px] leading-tight"
-             [ngClass]="asesorTomado() ? 'text-[#8C1D2E] font-semibold' : 'text-slate-400'">
-            {{ asesorActual() ?? nombreSugerido('ASESOR') ?? 'Puesto libre' }}
-          </p>
+          @if (asesorActual()) {
+            <p class="text-[11.5px] leading-tight text-[#8C1D2E] font-semibold">{{ asesorActual() }}</p>
+          } @else if (sugeridosAsesor().length) {
+            <p class="text-[11.5px] leading-tight text-slate-500">
+              {{ sugeridosAsesor().length }} candidato{{ sugeridosAsesor().length === 1 ? '' : 's' }} sugerido{{ sugeridosAsesor().length === 1 ? '' : 's' }}
+            </p>
+          } @else {
+            <p class="text-[11.5px] leading-tight text-slate-400">Puesto libre</p>
+          }
         </div>
         <div class="rounded-lg border px-2.5 py-1.5"
              [ngClass]="coasesorTomado() ? 'border-sky-200 bg-sky-50' : 'border-dashed border-slate-200'">
           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Co-asesor <span class="font-normal normal-case">(opcional)</span></p>
-          <p class="text-[11.5px] leading-tight"
-             [ngClass]="coasesorTomado() ? 'text-sky-700 font-semibold' : 'text-slate-400'">
-            {{ coasesorActual() ?? nombreSugerido('COASESOR') ?? 'Puesto libre' }}
-          </p>
+          @if (coasesorActual()) {
+            <p class="text-[11.5px] leading-tight text-sky-700 font-semibold">{{ coasesorActual() }}</p>
+          } @else if (sugeridosCoasesor().length) {
+            <p class="text-[11.5px] leading-tight text-slate-500">
+              {{ sugeridosCoasesor().length }} candidato{{ sugeridosCoasesor().length === 1 ? '' : 's' }} sugerido{{ sugeridosCoasesor().length === 1 ? '' : 's' }}
+            </p>
+          } @else {
+            <p class="text-[11.5px] leading-tight text-slate-400">Puesto libre</p>
+          }
         </div>
       </div>
 
       <p class="text-xs font-medium text-slate-500 mb-1">
         Docentes de la línea del tema
         @if (!cupoLleno()) {
-          <span class="text-slate-400 font-normal">— al agregar, elige el puesto</span>
+          <span class="text-slate-400 font-normal">— puedes sugerir varios por puesto</span>
         } @else {
-          <span class="text-slate-400 font-normal">— ambos puestos están cubiertos</span>
+          <span class="text-slate-400 font-normal">— ambos puestos ya están designados</span>
         }
       </p>
 
@@ -156,11 +167,11 @@ interface DialogData {
       <ng-template matMenuContent let-d="d">
         <button mat-menu-item [disabled]="asesorTomado()" (click)="agregar(d, 'ASESOR')">
           <mat-icon svgIcon="handshake" class="size-4 text-[#8C1D2E]" />
-          <span>Como <b>asesor</b>@if (asesorTomado()) { <span class="text-[10.5px] text-slate-400">— puesto ocupado</span> }</span>
+          <span>Como <b>asesor</b>@if (asesorTomado()) { <span class="text-[10.5px] text-slate-400">— ya designado</span> }</span>
         </button>
         <button mat-menu-item [disabled]="coasesorTomado()" (click)="agregar(d, 'COASESOR')">
           <mat-icon svgIcon="user-round-plus" class="size-4 text-sky-600" />
-          <span>Como <b>co-asesor</b>@if (coasesorTomado()) { <span class="text-[10.5px] text-slate-400">— puesto ocupado</span> }</span>
+          <span>Como <b>co-asesor</b>@if (coasesorTomado()) { <span class="text-[10.5px] text-slate-400">— ya designado</span> }</span>
         </button>
       </ng-template>
     </mat-menu>
@@ -189,23 +200,18 @@ export class SugerirAsesoresDialogComponent implements OnInit {
   protected coasesorActual = signal<string | null>(null);
 
   /**
-   * Un puesto está tomado si ya hay una designación vigente O una sugerencia para él: solo se
-   * propone un docente por puesto (para cambiarlo, primero se quita el sugerido).
+   * Un puesto está tomado cuando ya tiene una designación vigente: hasta entonces se pueden
+   * seguir sugiriendo candidatos, para que el doctorando elija a quién solicitar.
    */
-  protected asesorTomado = computed(() =>
-    !!this.asesorActual() || this.sugeridos().some((s: any) => (s.tipo ?? 'ASESOR') === 'ASESOR'));
-
-  protected coasesorTomado = computed(() =>
-    !!this.coasesorActual() || this.sugeridos().some((s: any) => s.tipo === 'COASESOR'));
+  protected asesorTomado = computed(() => !!this.asesorActual());
+  protected coasesorTomado = computed(() => !!this.coasesorActual());
 
   /** Sin puestos libres no hay nada más que sugerir. */
   protected cupoLleno = computed(() => this.asesorTomado() && this.coasesorTomado());
 
-  /** Nombre del docente sugerido para ese puesto (aún sin designación formal). */
-  protected nombreSugerido(tipo: 'ASESOR' | 'COASESOR'): string | null {
-    const s: any = this.sugeridos().find((x: any) => (x.tipo ?? 'ASESOR') === tipo);
-    return s ? `${s.apellidos}, ${s.nombres}` : null;
-  }
+  /** Candidatos sugeridos para cada puesto (puede haber varios: el doctorando elige). */
+  protected sugeridosAsesor = computed(() => this.sugeridos().filter((s: any) => (s.tipo ?? 'ASESOR') === 'ASESOR'));
+  protected sugeridosCoasesor = computed(() => this.sugeridos().filter((s: any) => s.tipo === 'COASESOR'));
 
   /** Ficha completa del docente; desde ahí se sugiere eligiendo el puesto igual que en la lista. */
   protected verMas(d: any): void {

@@ -8,6 +8,7 @@ import { NotificationService } from '@/app/shared/notification/notification.serv
 import { CoordinadorProyectoService } from '../services/coordinador-proyecto.service';
 import { DesignarRevisoresDialogComponent } from './designar-revisores-dialog.component';
 import { DesignarJuradoInformeDialogComponent } from './designar-jurado-informe-dialog.component';
+import { DesignarJuradoSustentacionDialogComponent } from './designar-jurado-sustentacion-dialog.component';
 import { DetalleDesignacionDialogComponent } from './detalle-designacion-dialog.component';
 
 /**
@@ -83,6 +84,12 @@ import { DetalleDesignacionDialogComponent } from './detalle-designacion-dialog.
                       <button mat-flat-button color="primary" class="!h-8 !text-xs" (click)="designarJuradoInforme(r)">
                         <mat-icon svgIcon="user-plus" class="size-3.5 mr-1" /> Jurado Informante
                       </button>
+                    } @else if (r.expedienteSustentacionRecibido && !r.juradoSustentacionDesignado) {
+                      <button mat-flat-button color="primary" class="!h-8 !text-xs" (click)="designarJuradoSustentacion(r)">
+                        <mat-icon svgIcon="user-plus" class="size-3.5 mr-1" /> Jurado de Sustentación
+                      </button>
+                    } @else if (r.juradoSustentacionDesignado) {
+                      <span class="text-[11px] text-emerald-600 font-semibold">Jurado de Sustentación designado</span>
                     } @else if (r.informeFinalRevisado) {
                       <span class="text-[11px] text-emerald-600 font-semibold">Informe aprobado por jurado</span>
                     } @else if (r.juradoInformeDesignado) {
@@ -139,6 +146,13 @@ export class CoordinadorProyectoComponent implements OnInit {
 
   designarJuradoInforme(r: any): void {
     this._dialog.open(DesignarJuradoInformeDialogComponent, {
+      width: '520px', maxWidth: '92vw', maxHeight: '90vh', autoFocus: false,
+      data: { tesisId: r.tesisId, estudiante: r.estudianteApellidos + ', ' + r.estudianteNombres, titulo: r.tituloTesis },
+    }).afterClosed().subscribe((ok) => { if (ok) this.cargar(); });
+  }
+
+  designarJuradoSustentacion(r: any): void {
+    this._dialog.open(DesignarJuradoSustentacionDialogComponent, {
       width: '520px', maxWidth: '92vw', maxHeight: '90vh', autoFocus: false,
       data: { tesisId: r.tesisId, estudiante: r.estudianteApellidos + ', ' + r.estudianteNombres, titulo: r.tituloTesis },
     }).afterClosed().subscribe((ok) => { if (ok) this.cargar(); });

@@ -28,6 +28,10 @@ export interface Expediente {
   proyectoHabilitado?: boolean;
   /** true cuando el asesor emitió su carta: toca el cierre del expediente (Turnitin, final, envío). */
   cierreHabilitado?: boolean;
+  /** true si aún hay una observación (asesor, revisor o Jurado Informante) por corregir en el proyecto. */
+  proyectoPendienteCorreccion?: boolean;
+  /** true cuando el Dictamen de Expedito ya está firmado: se puede solicitar el Jurado de Sustentación. */
+  sustentacionHabilitada?: boolean;
   etapas: EtapaItem[];
 }
 

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { ConfirmDialogService } from '@/app/shared/confirm-dialog/confirm-dialog.service';
 import { NotificationService } from '@/app/shared/notification/notification.service';
 import { CoordinadorProyectoService } from '../services/coordinador-proyecto.service';
 
@@ -69,6 +70,7 @@ export interface DesignarRevisoresData {
 export class DesignarRevisoresDialogComponent {
   private _svc = inject(CoordinadorProyectoService);
   private _toast = inject(NotificationService);
+  private _confirm = inject(ConfirmDialogService);
 
   protected docentes = signal<any[]>([]);
   protected sel = signal<string[]>([]);
@@ -100,11 +102,24 @@ export class DesignarRevisoresDialogComponent {
 
   designar(): void {
     if (this.sel().length !== 2 || this.guardando()) return;
-    this.guardando.set(true);
-    this._svc.designar$(this.data.tesisId, this.sel()).subscribe({
-      next: () => { this._toast.success('Revisores designados'); this.dialogRef.close(true); },
-      error: (e) => { this.guardando.set(false); this._toast.error(e?.error?.message ?? 'No se pudo designar'); },
-    });
+    const nombres = this.sel()
+      .map((id) => this.docentes().find((d) => d.id === id)?.nombre)
+      .filter((n): n is string => !!n);
+    // La designación no se puede rehacer: el sistema rechaza designar dos veces.
+    this._confirm.confirmSave({
+      title: 'Designar los revisores',
+      message: `Se designará como revisores del proyecto de ${this.data.estudiante} a:`,
+      details: [...nombres,
+        'ambos quedan habilitados para evaluar con la rúbrica',
+        'la designación no se puede cambiar después'],
+      confirmLabel: 'Designar',
+    }).then(() => {
+      this.guardando.set(true);
+      this._svc.designar$(this.data.tesisId, this.sel()).subscribe({
+        next: () => { this._toast.success('Revisores designados y habilitados para evaluar'); this.dialogRef.close(true); },
+        error: (e) => { this.guardando.set(false); this._toast.error(e?.error?.message ?? 'No se pudo designar'); },
+      });
+    }).catch(() => {});
   }
   cancelar(): void { this.dialogRef.close(false); }
 }

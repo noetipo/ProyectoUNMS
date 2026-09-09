@@ -143,9 +143,16 @@ import {
                     <mat-icon svgIcon="send" class="size-3.5 mr-1" /> Reenviar a revisión
                     @if (observacionesPendientes() > 0) { <span class="ml-1 font-normal opacity-90">({{ observacionesPendientes() }} sin corregir)</span> }
                   </button>
+                } @else if (e.listoRevision) {
+                  <span class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50">
+                    <mat-icon svgIcon="circle-check" class="size-4" /> Enviado a revisión
+                  </span>
                 } @else {
-                  <button mat-flat-button color="primary" class="!h-9 !text-sm" [disabled]="!e.puedeMarcarListo || e.listoRevision" (click)="marcarListo()">
-                    {{ e.listoRevision ? '✓ Enviado a revisión' : 'Marcar listo para revisión' }}
+                  <button mat-flat-button color="primary" class="!h-9 !text-sm"
+                          [disabled]="!e.puedeMarcarListo"
+                          [title]="!e.puedeMarcarListo ? 'Completa el 100% del proyecto antes de enviarlo' : ''"
+                          (click)="marcarListo()">
+                    <mat-icon svgIcon="send" class="size-3.5 mr-1" /> Enviar a revisión
                   </button>
                 }
               </div>
@@ -236,94 +243,10 @@ import {
               </section>
             }
 
-            <!-- Etapa 5: defensa programada -->
-            @if (e.defensaProgramada) {
-              <section class="rounded-xl border border-[#8C1D2E]/25 bg-[#FDF6F7] p-4">
-                <div class="flex items-center gap-2 mb-1.5">
-                  <mat-icon svgIcon="calendar-check" class="size-4 text-[#8C1D2E]" />
-                  <p class="text-[13px] font-bold text-[#8C1D2E]">Defensa del proyecto programada</p>
-                </div>
-                <p class="text-[13px] text-slate-700">
-                  {{ e.fechaDefensa | date:'EEEE d \\'de\\' MMMM \\'de\\' y' }}<span *ngIf="e.horaDefensa"> · {{ e.horaDefensa }}</span><span *ngIf="e.lugarDefensa"> · {{ e.lugarDefensa }}</span>
-                </p>
-                @if (e.dictamenNumero) { <p class="text-[11px] text-slate-400 mt-0.5 font-mono">{{ e.dictamenNumero }}</p> }
-              </section>
-            }
-
-            <!-- Etapa 6: ejecución de la tesis (informe final + avances) -->
-            @if (e.defensaProgramada) {
-              <section class="rounded-xl border border-slate-200 bg-white p-4">
-                <div class="flex items-center gap-2 mb-2">
-                  <mat-icon svgIcon="rocket" class="size-4 text-[#8C1D2E]" />
-                  <p class="text-[13px] font-bold text-slate-700">Ejecución de la tesis · Informe final</p>
-                </div>
-                @if (e.informeFinalAprobado) {
-                  <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12.5px] text-emerald-700 flex items-center gap-1.5">
-                    <mat-icon svgIcon="badge-check" class="size-4 shrink-0" /> Tu asesor aprobó el informe final.
-                  </div>
-                  <!-- Etapa 7: solicitar Jurado Informante -->
-                  <div class="mt-2">
-                    @if (!e.juradoInformanteSolicitado) {
-                      <button mat-flat-button class="!h-8 !text-[12px] !bg-[#8C1D2E] !text-white hover:!bg-[#731725]" (click)="solicitarJurado()">
-                        <mat-icon svgIcon="send" class="size-3.5 mr-1" /> Solicitar Jurado Informante
-                      </button>
-                    } @else if (e.informeFinalRevisado) {
-                      <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12.5px] text-emerald-700 flex items-center gap-1.5">
-                        <mat-icon svgIcon="badge-check" class="size-4 shrink-0" /> El Jurado Informante aprobó tu informe final. Puedes continuar con el trámite de expedito.
-                      </div>
-                    } @else {
-                      <span class="text-[11px] text-slate-400">Jurado Informante solicitado — en evaluación.</span>
-                    }
-                    <!-- Evaluaciones del Jurado Informante -->
-                    @if (e.evaluacionesJuradoInforme?.length) {
-                      <div class="mt-2 space-y-1.5">
-                        @for (jr of e.evaluacionesJuradoInforme; track jr.id) {
-                          <div class="rounded-lg border border-slate-100 bg-white px-3 py-2">
-                            <div class="flex items-center gap-2 flex-wrap">
-                              <b class="text-[12px] text-slate-700">Jurado {{ jr.orden }}</b>
-                              @if (jr.presidente) { <span class="text-[10px] text-[#8C1D2E] font-bold">Presidente</span> }
-                              <span class="px-1.5 py-0.5 rounded text-[10px] font-bold" [ngClass]="revEstadoCls(jr.estado)">{{ revEstadoLabel(jr.estado) }}</span>
-                              @if (jr.puntaje != null) { <span class="text-[10.5px] text-slate-400">{{ jr.puntaje }}/20</span> }
-                            </div>
-                            @if (jr.comentario) { <p class="text-[12px] text-slate-600 mt-1"><span class="font-semibold text-rose-500">Observación:</span> {{ jr.comentario }}</p> }
-                            @if (jr.respuesta) { <p class="text-[12px] text-slate-700 mt-1 rounded-md bg-sky-50 border border-sky-100 px-2 py-1.5"><span class="font-semibold text-sky-600">Tu respuesta:</span> {{ jr.respuesta }}</p> }
-                            @if (jr.estado === 'OBSERVADO' && !jr.respuesta) {
-                              <button mat-flat-button class="!h-7 !text-[11px] mt-2 !bg-[#8C1D2E] !text-white hover:!bg-[#731725]" (click)="responderJurado(jr)">
-                                <mat-icon svgIcon="reply" class="size-3.5 mr-1" /> Levantar observación
-                              </button>
-                            }
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
-                } @else {
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <span class="px-2 py-0.5 rounded text-[11px] font-bold" [ngClass]="e.informeFinalSubido ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'">
-                      {{ e.informeFinalSubido ? 'INFORME SUBIDO' : 'SIN SUBIR' }}
-                    </span>
-                    <button mat-stroked-button class="!h-8 !text-[12px] !text-[#8C1D2E]" (click)="informeInput.click()">
-                      <mat-icon svgIcon="upload" class="size-3.5 mr-1" /> {{ e.informeFinalSubido ? 'Reemplazar informe final' : 'Subir informe final (PDF)' }}
-                    </button>
-                    <input #informeInput type="file" accept="application/pdf" class="hidden" (change)="subirInforme($event)" />
-                  </div>
-                }
-                @if (e.avances?.length) {
-                  <div class="mt-3">
-                    <p class="text-[11px] font-bold text-slate-400 mb-1.5">EVALUACIONES DE AVANCE DEL ASESOR</p>
-                    <div class="space-y-1.5">
-                      @for (av of e.avances; track av.id) {
-                        <div class="rounded-lg bg-slate-50 border border-slate-100 px-3 py-1.5 text-[12px]">
-                          <b class="text-slate-700">{{ av.fechaEvaluacion | date:'dd/MM/yyyy' }}</b>
-                          <span class="text-slate-400 ml-1">rúbrica {{ av.puntajeTotal }}/16 · plan {{ av.porcentajePlan }}%</span>
-                          @if (av.comentario) { <p class="text-slate-600">{{ av.comentario }}</p> }
-                        </div>
-                      }
-                    </div>
-                  </div>
-                }
-              </section>
-            }
+            <!-- La defensa programada y su seguimiento viven en "Cierre y envío" (Etapa 5), y la
+                 ejecución (informe final, avance, Jurado Informante) vive en su propia pestaña
+                 "Ejecución de tesis" desde que el proyecto queda aprobado: mostrar cualquiera de
+                 los dos aquí se sentía como retroceder a un paso que ya se dio por cerrado. -->
 
             <!-- Etapa 5: revisores designados y estado de la evaluación -->
             @if (e.evaluacionesRevisores?.length) {
@@ -456,13 +379,17 @@ import {
                           @for (h of hipotesis(); track $index; let i = $index) {
                             <div class="flex items-center gap-2">
                               <span class="text-[11px] text-slate-400 w-9 shrink-0">H{{ i + 1 }}</span>
-                              <input class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:border-[#8C1D2E]"
-                                     [value]="h" (blur)="saveHip(i, $event)" placeholder="Hipótesis de la investigación" />
-                              <button mat-icon-button class="!size-7" (click)="delHip(i)"><mat-icon svgIcon="trash" class="size-4 text-rose-400" /></button>
+                              <input class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:border-[#8C1D2E] disabled:bg-slate-50 disabled:text-slate-400"
+                                     [value]="h" [disabled]="!campoEditable('hipotesis')" (blur)="saveHip(i, $event)" placeholder="Hipótesis de la investigación" />
+                              @if (campoEditable('hipotesis')) {
+                                <button mat-icon-button class="!size-7" (click)="delHip(i)"><mat-icon svgIcon="trash" class="size-4 text-rose-400" /></button>
+                              }
                             </div>
                           }
                           @if (!hipotesis().length) { <p class="text-[12px] text-slate-400">Aún no has agregado hipótesis.</p> }
-                          <button mat-button class="!h-7 !text-[11px] !text-[#8C1D2E]" (click)="addHip()"><mat-icon svgIcon="plus" class="size-3.5 mr-1" /> Agregar hipótesis</button>
+                          @if (campoEditable('hipotesis')) {
+                            <button mat-button class="!h-7 !text-[11px] !text-[#8C1D2E]" (click)="addHip()"><mat-icon svgIcon="plus" class="size-3.5 mr-1" /> Agregar hipótesis</button>
+                          }
                         </div>
                       } @else if (c.k === 'referencias') {
                         <!-- Gestor de referencias estructuradas (auto-formato APA/Vancouver/IEEE) -->
@@ -471,6 +398,7 @@ import {
                             <span class="text-[11px] text-slate-400">Estilo de cita:</span>
                             @for (s of estilos; track s.v) {
                               <button type="button" [title]="s.hint" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition"
+                                      [disabled]="!proyectoEditable()"
                                       [ngClass]="e.estiloCita === s.v ? 'bg-[#FDF6F7] text-[#8C1D2E] border-[#8C1D2E]/30' : (e.estiloCitaBloqueado ? 'text-slate-300 border-slate-100' : 'text-slate-500 border-slate-200 hover:bg-slate-50')"
                                       (click)="setEstilo(s.v)">{{ s.l }}</button>
                             }
@@ -485,20 +413,24 @@ import {
                               <div class="flex items-start gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                                 <span class="text-[11px] font-mono text-slate-400 shrink-0 mt-0.5">{{ (e.estiloCita === 'VANCOUVER' || e.estiloCita === 'IEEE') ? '[' + (i + 1) + ']' : '•' }}</span>
                                 <p class="flex-1 text-[12.5px] text-slate-700 leading-snug">{{ ref.formateada || '(referencia incompleta)' }}</p>
-                                <button mat-icon-button class="!size-7 shrink-0" (click)="editReferencia(ref)"><mat-icon svgIcon="pencil" class="size-3.5 text-slate-400" /></button>
-                                <button mat-icon-button class="!size-7 shrink-0" (click)="delReferencia(ref)"><mat-icon svgIcon="trash" class="size-4 text-rose-400" /></button>
+                                @if (proyectoEditable()) {
+                                  <button mat-icon-button class="!size-7 shrink-0" (click)="editReferencia(ref)"><mat-icon svgIcon="pencil" class="size-3.5 text-slate-400" /></button>
+                                  <button mat-icon-button class="!size-7 shrink-0" (click)="delReferencia(ref)"><mat-icon svgIcon="trash" class="size-4 text-rose-400" /></button>
+                                }
                               </div>
                             }
                             @if (!(e.referencias?.length)) { <p class="text-[12px] text-slate-400">Aún no has agregado referencias.</p> }
                           </div>
-                          <button mat-button class="!h-7 !text-[11px] !text-[#8C1D2E]" (click)="addReferencia()"><mat-icon svgIcon="plus" class="size-3.5 mr-1" /> Agregar referencia</button>
+                          @if (proyectoEditable()) {
+                            <button mat-button class="!h-7 !text-[11px] !text-[#8C1D2E]" (click)="addReferencia()"><mat-icon svgIcon="plus" class="size-3.5 mr-1" /> Agregar referencia</button>
+                          }
                         </div>
                       } @else if (c.input) {
-                        <input class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#8C1D2E]"
-                               [value]="val(c.k)" [placeholder]="c.ph ?? ''" (blur)="guardar(c.k, $event)" />
+                        <input class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#8C1D2E] disabled:bg-slate-50 disabled:text-slate-400"
+                               [value]="val(c.k)" [placeholder]="c.ph ?? ''" [disabled]="!campoEditable(c.k)" (blur)="guardar(c.k, $event)" />
                       } @else {
-                        <textarea class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#8C1D2E]"
-                                  [rows]="c.rows ?? 3" [value]="val(c.k)" [placeholder]="c.ph ?? ''"
+                        <textarea class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-[#8C1D2E] disabled:bg-slate-50 disabled:text-slate-400"
+                                  [rows]="c.rows ?? 3" [value]="val(c.k)" [placeholder]="c.ph ?? ''" [disabled]="!campoEditable(c.k)"
                                   (focus)="onCitaFocus(c.k, $event)" (blur)="guardar(c.k, $event)"></textarea>
                       }
                       @if (tieneHistorial(c.k)) {
@@ -541,15 +473,19 @@ import {
                   <div class="mt-4 pt-4 border-t border-slate-100">
                     <div class="flex items-center justify-between mb-2">
                       <label class="form-label !mb-0">Objetivos específicos</label>
-                      <button mat-button class="!h-7 !text-[11px] !text-[#8C1D2E]" (click)="addObjetivo()"><mat-icon svgIcon="plus" class="size-3.5 mr-1" /> Agregar objetivo</button>
+                      @if (proyectoEditable()) {
+                        <button mat-button class="!h-7 !text-[11px] !text-[#8C1D2E]" (click)="addObjetivo()"><mat-icon svgIcon="plus" class="size-3.5 mr-1" /> Agregar objetivo</button>
+                      }
                     </div>
                     <div class="space-y-2">
                       @for (o of e.objetivos; track o.id ?? $index; let i = $index) {
                         <div class="flex items-center gap-2">
                           <span class="text-[11px] text-slate-400 w-9 shrink-0">OE{{ i + 1 }}</span>
-                          <input class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:border-[#8C1D2E]"
-                                 [value]="o.texto ?? ''" (blur)="saveObjetivo(o, $event)" placeholder="Objetivo específico" />
-                          <button mat-icon-button class="!size-7" (click)="delObjetivo(o)"><mat-icon svgIcon="trash" class="size-4 text-rose-400" /></button>
+                          <input class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:border-[#8C1D2E] disabled:bg-slate-50 disabled:text-slate-400"
+                                 [value]="o.texto ?? ''" [disabled]="!proyectoEditable()" (blur)="saveObjetivo(o, $event)" placeholder="Objetivo específico" />
+                          @if (proyectoEditable()) {
+                            <button mat-icon-button class="!size-7" (click)="delObjetivo(o)"><mat-icon svgIcon="trash" class="size-4 text-rose-400" /></button>
+                          }
                         </div>
                       }
                       @if (!e.objetivos.length) { <p class="text-[12px] text-slate-400">Aún no has agregado objetivos específicos.</p> }
@@ -599,63 +535,68 @@ import {
                     <!-- Cronograma de actividades -->
                     <div class="rounded-xl border border-slate-200 p-4">
                       <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
-                        <h3 class="text-sm font-bold text-slate-700">Cronograma de actividades <span class="font-normal text-slate-400">· {{ meses().length || 0 }} meses</span></h3>
+                        <h3 class="text-sm font-bold text-slate-700">Cronograma de actividades @if (!e.planPublicado) { <span class="font-normal text-slate-400">· {{ meses().length || 0 }} meses</span> }</h3>
                         <span class="ml-auto text-[11px] text-slate-500">{{ e.actividades.length }} actividades · {{ actHechas() }} hechas · {{ actEnCurso() }} en curso</span>
                         <span class="text-[10px] text-slate-300 font-mono">proyecto_actividades</span>
                       </div>
-                      <div class="flex items-center gap-2 mb-2">
-                        @if (!e.planPublicado) {
+
+                      @if (!e.planPublicado) {
+                        <div class="flex items-center gap-2 mb-2">
                           <button mat-stroked-button class="!h-8 !text-xs !text-[#8C1D2E]" (click)="abrirActividad()">
                             <mat-icon svgIcon="plus" class="size-3.5 mr-1" /> Agregar actividad
                           </button>
-                        }
-                        <button mat-button class="!h-8 !text-[11px] !text-[#8C1D2E] ml-auto" [disabled]="e.planPublicado" (click)="publicarPlan()">
-                          {{ e.planPublicado ? '✓ Plan publicado' : 'Publicar plan' }}
-                        </button>
-                      </div>
-                      @if (e.planPublicado) {
-                        <p class="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-3 flex items-center gap-1.5">
-                          <mat-icon svgIcon="lock" class="size-3.5 text-slate-400 shrink-0" /> <span>Plan publicado — el cronograma quedó <b>congelado</b>. Solo puedes actualizar el <b>estado</b> de cada actividad (haz clic en él) para el seguimiento durante la ejecución.</span>
-                        </p>
-                      } @else {
-                        <p class="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
-                          💡 Estas actividades se convierten en el <b>plan de actividades</b> que el asesor monitorea (%) y el tutor supervisa durante la ejecución (Etapa 6). Al <b>publicar el plan</b> el cronograma queda fijo y solo podrás actualizar el estado de cada actividad.
-                        </p>
-                      }
-
-                      <div class="overflow-x-auto">
-                        <div class="min-w-[640px]">
-                          <div class="grid grid-cols-[minmax(150px,32%)_1fr_88px_24px] items-end gap-2 pb-1 border-b border-slate-100">
-                            <span class="text-[10px] font-bold tracking-wide text-slate-400">ACTIVIDAD · FASE</span>
-                            <div class="grid" [style.grid-template-columns]="'repeat(' + (meses().length || 1) + ', 1fr)'">
-                              @for (m of meses(); track m.idx) { <span class="text-[8px] text-center text-slate-300 font-mono">{{ m.label }}</span> }
-                            </div>
-                            <span class="text-[10px] font-bold tracking-wide text-slate-400 text-center">ESTADO</span>
-                            <span></span>
-                          </div>
-                          @for (a of e.actividades; track a.id ?? $index) {
-                            <div class="grid grid-cols-[minmax(150px,32%)_1fr_88px_24px] items-center gap-2 py-2 border-b border-slate-50">
-                              <div>
-                                <p class="text-[12px] text-slate-700 leading-tight">{{ a.nombre }}</p>
-                                <div class="flex items-center gap-2 mt-1">
-                                  <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold" [style.background]="faseBg(a.fase)" [style.color]="faseFg(a.fase)">{{ faseLabel(a.fase) }}</span>
-                                  @if (rangoFechas(a); as r) { <span class="text-[10px] text-slate-400">{{ r }}</span> }
-                                </div>
-                              </div>
-                              <div class="grid h-2.5 rounded bg-slate-100" [style.grid-template-columns]="'repeat(' + (meses().length || 1) + ', 1fr)'">
-                                @if (ganttCol(a); as gc) {
-                                  <div class="h-full rounded" [style.grid-column]="gc" [style.background]="faseFg(a.fase)"></div>
-                                }
-                              </div>
-                              <button type="button" class="px-2 py-1 rounded-md text-[10px] font-bold text-center hover:opacity-80" [ngClass]="estadoCls(a.estado)" (click)="cicloEstado(a)">{{ estadoLabel(a.estado) }}</button>
-                              @if (!e.planPublicado) {
-                                <button mat-icon-button class="!size-6" (click)="delActividad(a)"><mat-icon svgIcon="x" class="size-4 text-slate-400" /></button>
-                              } @else { <span></span> }
-                            </div>
-                          }
-                          @if (!e.actividades.length) { <p class="text-[12px] text-slate-400 py-3">Aún no hay actividades en el cronograma.</p> }
+                          <button mat-button class="!h-8 !text-[11px] !text-[#8C1D2E] ml-auto" (click)="publicarPlan()">
+                            Publicar plan
+                          </button>
                         </div>
-                      </div>
+                        <p class="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                          💡 Estas actividades se convierten en el <b>plan de actividades</b> que el asesor monitorea (%) y el tutor supervisa durante la ejecución (Etapa 6). Al <b>publicar el plan</b> el cronograma queda fijo; el seguimiento del estado de cada actividad se hará luego desde un tablero Kanban en "Ejecución de tesis".
+                        </p>
+
+                        <div class="overflow-x-auto">
+                          <div class="min-w-[640px]">
+                            <div class="grid grid-cols-[minmax(150px,32%)_1fr_88px_24px] items-end gap-2 pb-1 border-b border-slate-100">
+                              <span class="text-[10px] font-bold tracking-wide text-slate-400">ACTIVIDAD · FASE</span>
+                              <div class="grid" [style.grid-template-columns]="'repeat(' + (meses().length || 1) + ', 1fr)'">
+                                @for (m of meses(); track m.idx) { <span class="text-[8px] text-center text-slate-300 font-mono">{{ m.label }}</span> }
+                              </div>
+                              <span class="text-[10px] font-bold tracking-wide text-slate-400 text-center">ESTADO</span>
+                              <span></span>
+                            </div>
+                            @for (a of e.actividades; track a.id ?? $index) {
+                              <div class="grid grid-cols-[minmax(150px,32%)_1fr_88px_24px] items-center gap-2 py-2 border-b border-slate-50">
+                                <div>
+                                  <p class="text-[12px] text-slate-700 leading-tight">{{ a.nombre }}</p>
+                                  <div class="flex items-center gap-2 mt-1">
+                                    <span class="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold" [style.background]="faseBg(a.fase)" [style.color]="faseFg(a.fase)">{{ faseLabel(a.fase) }}</span>
+                                    @if (rangoFechas(a); as r) { <span class="text-[10px] text-slate-400">{{ r }}</span> }
+                                  </div>
+                                </div>
+                                <div class="grid h-2.5 rounded bg-slate-100" [style.grid-template-columns]="'repeat(' + (meses().length || 1) + ', 1fr)'">
+                                  @if (ganttCol(a); as gc) {
+                                    <div class="h-full rounded" [style.grid-column]="gc" [style.background]="faseFg(a.fase)"></div>
+                                  }
+                                </div>
+                                <span class="px-2 py-1 rounded-md text-[10px] font-bold text-center" [ngClass]="estadoCls(a.estado)">{{ estadoLabel(a.estado) }}</span>
+                                <button mat-icon-button class="!size-6" (click)="delActividad(a)"><mat-icon svgIcon="x" class="size-4 text-slate-400" /></button>
+                              </div>
+                            }
+                            @if (!e.actividades.length) { <p class="text-[12px] text-slate-400 py-3">Aún no hay actividades en el cronograma.</p> }
+                          </div>
+                        </div>
+                      } @else {
+                        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12px] text-emerald-700 flex items-start gap-2">
+                          <mat-icon svgIcon="badge-check" class="size-4 shrink-0 mt-px" />
+                          <span class="flex-1">
+                            <b>Plan publicado</b> — el cronograma quedó congelado.
+                            @if (e.proyectoAprobado) {
+                              Marca el avance de cada actividad (Pendiente / En curso / Hecha) desde el tablero Kanban de la pestaña <b>Ejecución de tesis</b>.
+                            } @else {
+                              Podrás marcar el avance de cada actividad desde un tablero Kanban en la pestaña <b>Ejecución de tesis</b>, en cuanto tu proyecto quede aprobado.
+                            }
+                          </span>
+                        </div>
+                      }
                     </div>
 
                     <!-- Presupuesto por partidas -->
@@ -993,18 +934,27 @@ export class MiProyectoComponent implements OnInit {
       default: return 'bg-slate-100 text-slate-500';
     }
   }
-  cicloEstado(a: ActividadItem): void {
-    if (!a.id) return;
-    const orden = ['PENDIENTE', 'EN_CURSO', 'HECHA'];
-    const next = orden[(orden.indexOf(a.estado ?? 'PENDIENTE') + 1) % 3];
-    // Solo el estado (funciona incluso con el plan publicado/congelado).
-    this._svc.actualizarActividad$(a.id, { estado: next } as any).subscribe({ next: () => this.cargar(), error: (e) => this.fail(e) });
-  }
 
   // ── Campos ──
   val(k: string): string { return this.p()?.campos?.[k] ?? ''; }
   rev(k: string): RevisionItem | undefined { return this.p()?.revisiones?.find((r) => r.campo === k); }
   chip(k: string) { return chipRevision(this.rev(k)?.estado); }
+
+  /**
+   * Borrador libre: mientras no se envíe a revisión, todo el proyecto se edita. Enviado
+   * (o resuelto), el contenido general queda congelado y solo se reabren los ítems puntuales
+   * que el asesor deja OBSERVADO — ver {@link campoEditable}.
+   */
+  protected proyectoEditable(): boolean {
+    return this.p()?.estado === 'EN_ELABORACION';
+  }
+
+  /** Un campo de texto se edita en borrador libre, o si el asesor lo dejó observado. */
+  protected campoEditable(k: string): boolean {
+    if (this.proyectoEditable()) return true;
+    const estado = this.rev(k)?.estado;
+    return estado === 'OBSERVADO' || estado === 'EN_CORRECCION';
+  }
   /** ¿El ítem tiene historial relevante? Solo si fue observado alguna vez (asesor o revisor);
    *  los ítems que el asesor solo aprobó directamente no muestran historial. */
   tieneHistorial(k: string): boolean {
@@ -1044,44 +994,6 @@ export class MiProyectoComponent implements OnInit {
       });
   }
 
-  // ── Etapa 7: Jurado Informante ──
-  solicitarJurado(): void {
-    this._confirm.confirmSave({
-      title: 'Solicitar Jurado Informante',
-      message: 'Se enviará tu expediente (informe final aprobado + Turnitin) para que el Coordinador designe el Jurado Informante. ¿Continuar?',
-    }).then(() => {
-      this._svc.solicitarJuradoInformante$().subscribe({
-        next: () => { this._toast.success('Jurado Informante solicitado'); this.cargar(); },
-        error: (e) => this.fail(e),
-      });
-    }).catch(() => {});
-  }
-  responderJurado(jr: any): void {
-    if (!jr.id) return;
-    this._dialog.open(CorreccionDialogComponent, {
-      width: '480px', autoFocus: true,
-      data: { titulo: 'Levantar observación · Jurado ' + jr.orden },
-    }).afterClosed().subscribe((texto: string | null) => {
-      if (!texto) return;
-      this._svc.responderJuradoInforme$(jr.id, texto).subscribe({
-        next: () => { this._toast.success('Respuesta enviada al jurado'); this.cargar(); },
-        error: (e) => this.fail(e),
-      });
-    });
-  }
-
-  // ── Etapa 6: subir informe final ──
-  subirInforme(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    this._svc.subirInformeFinal$(file).subscribe({
-      next: () => { this._toast.success('Informe final subido'); this.cargar(); },
-      error: (e) => this.fail(e),
-    });
-    input.value = '';
-  }
-
   // ── Etapa 5: responder a un revisor ──
   iniciales(nombre?: string): string {
     if (!nombre) return '—';
@@ -1109,14 +1021,6 @@ export class MiProyectoComponent implements OnInit {
     this.detallesRevisor.set(s);
   }
   revEstadoBadge(e?: string): string {
-    return e === 'CONFORME' ? 'bg-emerald-100 text-emerald-700'
-      : e === 'OBSERVADO' ? 'bg-rose-100 text-rose-700'
-      : 'bg-slate-100 text-slate-500';
-  }
-  revEstadoLabel(e?: string): string {
-    return e === 'CONFORME' ? '✓ CONFORME' : e === 'OBSERVADO' ? '⚑ OBSERVADO' : 'POR EVALUAR';
-  }
-  revEstadoCls(e?: string): string {
     return e === 'CONFORME' ? 'bg-emerald-100 text-emerald-700'
       : e === 'OBSERVADO' ? 'bg-rose-100 text-rose-700'
       : 'bg-slate-100 text-slate-500';
@@ -1390,10 +1294,29 @@ export class MiProyectoComponent implements OnInit {
 
   // ── Hitos ──
   marcarListo(): void {
-    this._svc.marcarListo$().subscribe({ next: () => { this._toast.success('Proyecto enviado a revisión del asesor'); this.cargar(); }, error: (e) => this.fail(e) });
+    // No es un guardado más: a partir de aquí el asesor ya puede revisarlo y no hay forma de
+    // retirarlo, así que se confirma en vez de enviarlo apenas se completa el 100%.
+    this._confirm.confirmSave({
+      title: 'Enviar el proyecto a revisión',
+      message: 'Tu asesor podrá ver el proyecto completo y evaluarlo. Al confirmar:',
+      details: ['tu asesor recibe el aviso y puede empezar a revisarlo',
+                 'podrá dejar observaciones por ítem si algo falta corregir',
+                 'no podrás retirarlo de la revisión'],
+      confirmLabel: 'Enviar a revisión',
+    }).then(() => {
+      this._svc.marcarListo$().subscribe({ next: () => { this._toast.success('Proyecto enviado a revisión del asesor'); this.cargar(); }, error: (e) => this.fail(e) });
+    }).catch(() => {});
   }
   reenviar(): void {
-    this._svc.reenviarRevision$().subscribe({ next: () => { this._toast.success('Proyecto reenviado a revisión del asesor'); this.cargar(); }, error: (e) => this.fail(e) });
+    this._confirm.confirmSave({
+      title: 'Reenviar el proyecto a revisión',
+      message: 'Tu asesor verá lo que corregiste. Al confirmar:',
+      details: ['tu asesor revisa nuevamente los ítems que observó',
+                 'no podrás retirarlo de la revisión'],
+      confirmLabel: 'Reenviar a revisión',
+    }).then(() => {
+      this._svc.reenviarRevision$().subscribe({ next: () => { this._toast.success('Proyecto reenviado a revisión del asesor'); this.cargar(); }, error: (e) => this.fail(e) });
+    }).catch(() => {});
   }
   publicarPlan(): void {
     this._confirm.confirmSave({
@@ -1407,10 +1330,11 @@ export class MiProyectoComponent implements OnInit {
   seedDemo(): void {
     this._confirm.confirmSave({
       title: 'Rellenar datos de prueba',
-      message: 'Se completará el proyecto con datos de ejemplo (enfoque cuantitativo) y se enviará a revisión del asesor. Útil para probar el flujo rápido.',
+      message: 'Se completará el proyecto con datos de ejemplo (enfoque cuantitativo). Útil para probar el flujo rápido.',
+      details: ['no se envía a revisión: eso lo haces tú con el botón "Enviar a revisión"'],
     }).then(() => {
       this._svc.seedDemo$().subscribe({
-        next: () => { this._toast.success('Datos de prueba cargados y enviados a revisión'); this.cargar(); },
+        next: () => { this._toast.success('Datos de prueba cargados'); this.cargar(); },
         error: (e) => this.fail(e),
       });
     }).catch(() => {});

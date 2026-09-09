@@ -5,7 +5,6 @@ import unmsm.edu.pe.tesis.application.dto.DefensaBandejaItem;
 import unmsm.edu.pe.tesis.application.dto.DefensaInfo;
 import unmsm.edu.pe.tesis.application.dto.DesignarRevisoresRequest;
 import unmsm.edu.pe.tesis.application.dto.DocenteOpcion;
-import unmsm.edu.pe.tesis.application.dto.ProgramarDefensaRequest;
 import unmsm.edu.pe.tesis.application.dto.RevisorItem;
 
 import java.util.List;
@@ -26,15 +25,21 @@ public interface CoordinadorProyectoService {
     /** Designa los revisores del proyecto (2 docentes). */
     void designarRevisores(UUID tesisId, DesignarRevisoresRequest req);
 
-    /** Información de la defensa programada (jurado + fecha). */
+    /**
+     * Información de la defensa (fecha/hora/lugar/modalidad y quiénes la evalúan — los mismos
+     * dos revisores del proyecto). Solo lectura: la programa la Secretaría.
+     */
     DefensaInfo defensa(UUID tesisId);
-
-    /** Programa la defensa: Jurado Examinador + fecha/hora/lugar (requiere revisores conformes). */
-    void programarDefensa(UUID tesisId, ProgramarDefensaRequest req);
 
     /** Miembros del Jurado Informante ya designados. */
     List<unmsm.edu.pe.tesis.application.dto.InformeRevisorItem> juradoInforme(UUID tesisId);
 
     /** Designa los 3 miembros del Jurado Informante del informe final (el 1.º es Presidente). */
     void designarJuradoInforme(UUID tesisId, unmsm.edu.pe.tesis.application.dto.DesignarJuradoInformeRequest req);
+
+    /** Miembros del Jurado de Sustentación ya designados (Etapa 8). */
+    List<unmsm.edu.pe.tesis.application.dto.JuradoItem> juradoSustentacion(UUID tesisId);
+
+    /** Designa los 3 miembros del Jurado de Sustentación (el 1.º es Presidente). */
+    void designarJuradoSustentacion(UUID tesisId, unmsm.edu.pe.tesis.application.dto.DesignarJuradoInformeRequest req);
 }

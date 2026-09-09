@@ -49,6 +49,9 @@ export const END_POINTS = {
   secretaria: {
     dictamenes: 'api/secretaria/dictamenes',
     defensa: 'api/secretaria/defensa',   // Etapa 5 · recepción de expedientes
+    cierre: 'api/secretaria/cierre-proyecto', // Etapa 5 · resultado, dictamen y archivo
+    juradoInformante: 'api/secretaria/jurado-informante', // Etapa 7 · dictamen, archivo y Expedito
+    sustentacion: 'api/secretaria/sustentacion', // Etapa 8 · dictamen, programación, acta y cierre
   },
   proyecto: {
     miProyecto: 'api/mi-proyecto',        // Etapa 4 · editor del estudiante

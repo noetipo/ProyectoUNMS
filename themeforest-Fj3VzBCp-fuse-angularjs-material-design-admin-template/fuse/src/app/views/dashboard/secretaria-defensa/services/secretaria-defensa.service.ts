@@ -58,9 +58,6 @@ export class SecretariaDefensaService {
   defensa$(tesisId: string): Observable<any> {
     return this._http.get<any>(`${this.base}/${tesisId}/defensa`);
   }
-  docentesDefensa$(tesisId: string): Observable<any> {
-    return this._http.get<any>(`${this.base}/${tesisId}/docentes-defensa`);
-  }
   programarDefensa$(tesisId: string, body: any): Observable<any> {
     return this._http.post<any>(`${this.base}/${tesisId}/defensa`, body);
   }

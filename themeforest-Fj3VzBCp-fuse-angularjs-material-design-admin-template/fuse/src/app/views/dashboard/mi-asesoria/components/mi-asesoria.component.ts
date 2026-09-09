@@ -37,7 +37,7 @@ import { AsesorSugerido, etiquetaEstadoDerivado, MiAsesoria } from '../models/mi
       </div>
 
       <div class="page-content p-6">
-        <div class="mx-auto max-w-[1440px] space-y-3">
+        <div class="w-full space-y-3">
 
           @if (loading()) {
             <p class="text-sm text-slate-400">Cargando…</p>
@@ -56,17 +56,17 @@ import { AsesorSugerido, etiquetaEstadoDerivado, MiAsesoria } from '../models/mi
 
             <!-- ── Franja de expediente: tema + con quién lo haces ── -->
             <section class="rounded-xl border border-slate-200 overflow-hidden">
-              <div class="flex items-start gap-2.5 px-3.5 py-3">
-                <mat-icon svgIcon="book-open" class="size-[18px] text-slate-400 shrink-0 mt-0.5" />
+              <div class="flex items-start gap-3 px-5 py-4">
+                <mat-icon svgIcon="book-open" class="size-5 text-slate-400 shrink-0 mt-0.5" />
                 <div class="flex-1 min-w-0">
                   @if (d.conTema) {
-                    <p class="text-[13px] font-semibold text-slate-800">{{ d.temaTitulo }}</p>
-                    <p class="text-[11px] text-slate-400 truncate">{{ d.lineaNombre ?? 'Sin línea' }} · {{ d.nivel ?? '—' }}</p>
+                    <p class="text-[15px] font-semibold text-slate-800">{{ d.temaTitulo }}</p>
+                    <p class="text-[12px] text-slate-400 truncate">{{ d.lineaNombre ?? 'Sin línea' }} · {{ d.nivel ?? '—' }}</p>
                   } @else {
-                    <p class="text-[13px] text-slate-400">El coordinador aún no registra tu tema de tesis.</p>
+                    <p class="text-[15px] text-slate-400">El coordinador aún no registra tu tema de tesis.</p>
                   }
                 </div>
-                <span class="shrink-0 text-[10.5px] font-semibold px-2 py-0.5 rounded-full"
+                <span class="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full"
                       [class]="d.estadoDerivado === 'SIN_TEMA' ? 'bg-rose-50 text-rose-600'
                              : d.estadoDerivado === 'SIN_ASESOR' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'">
                   {{ estadoLabel(d.estadoDerivado) }}
@@ -76,11 +76,11 @@ import { AsesorSugerido, etiquetaEstadoDerivado, MiAsesoria } from '../models/mi
               <div class="grid sm:grid-cols-3 border-t border-slate-100 bg-slate-50/60
                           divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
                 @for (p of equipo(); track p.rol) {
-                  <div class="flex items-center gap-2 px-3.5 py-2.5 min-w-0">
-                    <mat-icon [svgIcon]="p.icon" class="size-4 shrink-0" [class]="p.nombre ? p.color : 'text-slate-300'" />
+                  <div class="flex items-center gap-2.5 px-5 py-3.5 min-w-0">
+                    <mat-icon [svgIcon]="p.icon" class="size-5 shrink-0" [class]="p.nombre ? p.color : 'text-slate-300'" />
                     <div class="min-w-0">
-                      <p class="text-[10px] uppercase tracking-wide text-slate-400">{{ p.rol }}</p>
-                      <p class="text-[12.5px] truncate" [class]="p.nombre ? 'font-semibold text-slate-700' : 'text-slate-400 italic'">
+                      <p class="text-[11px] uppercase tracking-wide text-slate-400">{{ p.rol }}</p>
+                      <p class="text-sm truncate" [class]="p.nombre ? 'font-semibold text-slate-700' : 'text-slate-400 italic'">
                         {{ p.nombre ?? p.vacio }}
                       </p>
                     </div>
@@ -90,22 +90,23 @@ import { AsesorSugerido, etiquetaEstadoDerivado, MiAsesoria } from '../models/mi
             </section>
 
             <!-- ── Dos columnas: qué pasa · qué hago ──
-                 Sin documentos todavía, "Estado del trámite" ocupa el ancho completo para que
-                 no quede medio lienzo en blanco. -->
-            <div class="grid gap-3 md:grid-cols-2 items-start">
+                 "Estado del trámite" va sola a la izquierda; a la derecha, los candidatos que
+                 puedes solicitar y/o tus documentos — lo que exista. Con varios candidatos
+                 sugeridos (el tutor puede sugerir a más de uno) esa columna ya no se ve vacía:
+                 tiene su propio espacio en vez de ir apretada como sublista. Si no hay nada
+                 accionable en la derecha, el trámite ocupa el ancho completo. -->
+            <div class="grid gap-4 md:grid-cols-2 items-start">
 
-              <!-- Estado del trámite (incluye a quién puedes solicitar: es parte del trámite,
-                   no una sección aparte que repita lo que ya dice la franja de arriba) -->
-              <section class="rounded-xl border border-slate-100 p-3.5"
-                       [ngClass]="hayDocumentos(d) ? '' : 'md:col-span-2'">
-                <h2 class="text-[12.5px] font-semibold text-slate-800 mb-2.5">Estado del trámite</h2>
-                <ul class="space-y-2">
+              <section class="rounded-xl border border-slate-100 p-5"
+                       [ngClass]="(sugeridosVisibles().length || hayDocumentos(d)) ? '' : 'md:col-span-2'">
+                <h2 class="text-sm font-semibold text-slate-800 mb-3">Estado del trámite</h2>
+                <ul class="space-y-2.5">
                   @for (e of tramite(); track e.texto) {
-                    <li class="flex items-start gap-2">
-                      <mat-icon [svgIcon]="e.icon" class="size-4 shrink-0 mt-px" [class]="e.color" />
-                      <span class="flex-1 text-[12px] text-slate-600 leading-snug">{{ e.texto }}</span>
+                    <li class="flex items-start gap-2.5">
+                      <mat-icon [svgIcon]="e.icon" class="size-[18px] shrink-0 mt-px" [class]="e.color" />
+                      <span class="flex-1 text-[13px] text-slate-600 leading-snug">{{ e.texto }}</span>
                       @if (e.cancelarId) {
-                        <button mat-stroked-button class="!h-6 !text-[11px] !min-w-0 !px-2.5 shrink-0" (click)="cancelar(e.cancelarId)">
+                        <button mat-stroked-button class="!h-7 !text-xs !min-w-0 !px-2.5 shrink-0" (click)="cancelar(e.cancelarId)">
                           Cancelar
                         </button>
                       }
@@ -113,100 +114,128 @@ import { AsesorSugerido, etiquetaEstadoDerivado, MiAsesoria } from '../models/mi
                         <div class="row-actions shrink-0">
                           <button mat-icon-button class="!w-7 !h-7" title="Descargar el dictamen firmado"
                                   [disabled]="descargando()" (click)="verDictamen()">
-                            <mat-icon svgIcon="download" class="text-emerald-600 size-3.5" />
+                            <mat-icon svgIcon="download" class="text-emerald-600 size-4" />
                           </button>
                         </div>
                       }
                     </li>
                   }
                 </ul>
-
-                <!-- Candidatos que aún puedes solicitar. Quien ya ocupa un puesto no aparece:
-                     su nombre ya está en la franja de arriba. -->
-                @if (sugeridosVisibles().length) {
-                  <div class="mt-3 pt-3 border-t border-slate-100">
-                    <p class="text-[11px] text-slate-400 mb-2">
-                      {{ d.asesorNombre ? 'Tu tutor también sugirió para co-asesoría' : 'Asesores sugeridos por tu tutor' }}
-                    </p>
-                    <div class="space-y-1.5">
-                      @for (a of sugeridosVisibles(); track a.sugerenciaId) {
-                        <div class="flex items-center gap-2">
-                          <mat-icon [svgIcon]="a.tipo === 'COASESOR' ? 'users-round' : 'handshake'"
-                                    class="size-4 shrink-0" [class]="a.tipo === 'COASESOR' ? 'text-sky-500' : 'text-[#8C1D2E]'" />
-                          <div class="min-w-0 flex-1" [title]="detalle(a)">
-                            <p class="text-[12px] font-medium text-slate-700 truncate">{{ a.apellidos }}, {{ a.nombres }}</p>
-                            <p class="text-[10.5px] text-slate-400 truncate">
-                              {{ a.gradoAcademico ?? 'Docente' }}@if (a.categoria) { · {{ a.categoria }} } · {{ a.asesoriasActivas }} asesoría(s)
-                            </p>
-                            <!-- Dónde trabaja y cuántos años lleva: pesa al elegir asesor. -->
-                            @if (a.centroLaboral || a.experienciaAnios) {
-                              <p class="text-[10.5px] text-slate-400 truncate flex items-center gap-1">
-                                @if (a.centroLaboral) {
-                                  <mat-icon svgIcon="building-2" class="size-3 text-slate-300 shrink-0" />{{ a.centroLaboral }}
-                                }
-                                @if (a.experienciaAnios) {
-                                  <span class="text-slate-300">·</span> {{ a.experienciaAnios }} años
-                                }
-                              </p>
-                            }
-                          </div>
-                          <div class="flex flex-col items-center shrink-0">
-                            <button class="btn-dark !h-6 !text-[11px] !px-2.5"
-                                    [disabled]="!puedeSolicitar(a)" [title]="motivoBloqueo(a) ?? etiquetaSolicitar(a)"
-                                    (click)="solicitar(a)">
-                              Solicitar
-                            </button>
-                            <!-- El co-asesor no es obligatorio: se avisa bajo el botón para que
-                                 nadie sienta que su trámite depende de pedirlo. -->
-                            @if (a.tipo === 'COASESOR') {
-                              <span class="text-[9.5px] text-slate-400 mt-1 leading-none"
-                                    title="El co-asesor es opcional: tu proceso avanza igual sin él.">opcional</span>
-                            }
-                          </div>
-                        </div>
-                      }
-                    </div>
-                  </div>
-                }
               </section>
+
+              @if (sugeridosVisibles().length || hayDocumentos(d)) {
+                <div class="space-y-4">
+
+                  <!-- Candidatos que aún puedes solicitar. Quien ya ocupa un puesto no aparece:
+                       su nombre ya está en la franja de arriba. -->
+                  @if (sugeridosVisibles().length) {
+                    <section class="rounded-xl border border-slate-100 p-5">
+                      <h2 class="text-sm font-semibold text-slate-800 mb-3">
+                        {{ d.asesorNombre ? 'Sugeridos para co-asesoría' : 'Asesores sugeridos por tu tutor' }}
+                      </h2>
+                      <div class="space-y-2.5">
+                        @for (a of sugeridosVisibles(); track a.sugerenciaId) {
+                          <div class="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5">
+                            <mat-icon [svgIcon]="a.tipo === 'COASESOR' ? 'users-round' : 'handshake'"
+                                      class="size-5 shrink-0" [class]="a.tipo === 'COASESOR' ? 'text-sky-500' : 'text-[#8C1D2E]'" />
+                            <div class="min-w-0 flex-1" [title]="detalle(a)">
+                              <p class="text-[13px] font-medium text-slate-700 truncate">{{ a.apellidos }}, {{ a.nombres }}</p>
+                              <p class="text-[11px] text-slate-400 truncate">
+                                {{ a.gradoAcademico ?? 'Docente' }}@if (a.categoria) { · {{ a.categoria }} } · {{ a.asesoriasActivas }} asesoría(s)
+                              </p>
+                              <!-- Dónde trabaja y cuántos años lleva: pesa al elegir asesor. -->
+                              @if (a.centroLaboral || a.experienciaAnios) {
+                                <p class="text-[11px] text-slate-400 truncate flex items-center gap-1">
+                                  @if (a.centroLaboral) {
+                                    <mat-icon svgIcon="building-2" class="size-3 text-slate-300 shrink-0" />{{ a.centroLaboral }}
+                                  }
+                                  @if (a.experienciaAnios) {
+                                    <span class="text-slate-300">·</span> {{ a.experienciaAnios }} años
+                                  }
+                                </p>
+                              }
+                            </div>
+                            <div class="flex flex-col items-center shrink-0">
+                              <button class="btn-dark !h-7 !text-xs !px-3"
+                                      [disabled]="!puedeSolicitar(a)" [title]="motivoBloqueo(a) ?? etiquetaSolicitar(a)"
+                                      (click)="solicitar(a)">
+                                Solicitar
+                              </button>
+                              <!-- El co-asesor no es obligatorio: se avisa bajo el botón para que
+                                   nadie sienta que su trámite depende de pedirlo. -->
+                              @if (a.tipo === 'COASESOR') {
+                                <span class="text-[10px] text-slate-400 mt-1 leading-none"
+                                      title="El co-asesor es opcional: tu proceso avanza igual sin él.">opcional</span>
+                              }
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    </section>
+                  }
 
               <!-- Documentos -->
               @if (hayDocumentos(d)) {
-                <section class="rounded-xl border border-slate-100 p-3.5">
-                  <div class="flex items-baseline gap-1.5 mb-2.5">
-                    <h2 class="text-[12.5px] font-semibold text-slate-800">Documentos</h2>
+                <section class="rounded-xl border border-slate-100 p-5">
+                  <div class="flex items-baseline gap-1.5 mb-3">
+                    <h2 class="text-sm font-semibold text-slate-800">Documentos</h2>
                     <span class="text-[11px] text-slate-400">· descarga, firma y sube</span>
                   </div>
-                  <div class="space-y-1.5">
+                  <div class="space-y-2">
                     @for (doc of documentos(); track doc.key) {
-                      <div class="flex items-center gap-2.5 rounded-lg border border-slate-100 px-2.5 py-2">
-                        <mat-icon [svgIcon]="doc.subida ? 'file-check' : 'file-text'" class="size-4 shrink-0"
+                      <div class="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2.5">
+                        <mat-icon [svgIcon]="doc.subida ? 'file-check' : 'file-text'" class="size-5 shrink-0"
                                   [class]="doc.subida ? 'text-emerald-600' : doc.disponible ? 'text-amber-500' : 'text-slate-300'" />
                         <div class="min-w-0 flex-1">
-                          <p class="text-[12px] font-medium text-slate-700 truncate">{{ doc.label }}</p>
-                          <p class="text-[10.5px]" [class]="doc.subida ? 'text-emerald-600' : doc.disponible ? 'text-amber-600' : 'text-slate-400'">
+                          <p class="text-[13px] font-medium text-slate-700 truncate">{{ doc.label }}</p>
+                          <p class="text-[11px]" [class]="doc.subida ? 'text-emerald-600' : doc.disponible ? 'text-amber-600' : 'text-slate-400'">
                             {{ doc.subida ? 'Firmado subido' : doc.disponible ? 'Pendiente de firma' : 'Cuando tu asesor acepte' }}
                           </p>
                         </div>
-                        <div class="row-actions shrink-0">
+                        <div class="flex items-center gap-1.5 shrink-0">
                           <button mat-icon-button class="!w-7 !h-7" title="Ver el documento en PDF"
                                   [disabled]="!doc.disponible || descargando()" (click)="descargar(doc.tipo, 'pdf')">
                             <mat-icon svgIcon="file-search" class="text-slate-400 size-3.5" />
                           </button>
-                          <button mat-icon-button class="!w-7 !h-7" title="Descargar en Word"
+                          <button mat-stroked-button class="!h-7 !text-[11px] !min-w-0 !px-2.5 !text-slate-600 !border-slate-200"
                                   [disabled]="!doc.disponible || descargando()" (click)="descargar(doc.tipo, 'docx')">
-                            <mat-icon svgIcon="download" class="text-slate-400 size-3.5" />
+                            <mat-icon svgIcon="download" class="size-3.5 mr-1" /> Descargar
                           </button>
-                          <button mat-icon-button class="!w-7 !h-7" [title]="doc.subida ? 'Reemplazar el firmado' : 'Subir el documento firmado'"
-                                  [disabled]="subiendo() || !doc.disponible" (click)="elegirArchivo(doc.key, file)">
-                            <mat-icon svgIcon="upload" class="size-3.5" [class]="doc.subida ? 'text-emerald-600' : 'text-[#8C1D2E]'" />
+                          <button mat-stroked-button class="!h-7 !text-[11px] !min-w-0 !px-2.5"
+                                  [ngClass]="doc.subida ? '!text-emerald-600 !border-emerald-200' : '!text-[#8C1D2E] !border-[#8C1D2E]/30'"
+                                  [disabled]="subiendo() || !doc.disponible || enviosCerrados()"
+                                  [title]="enviosCerrados() ? 'Ya enviaste tus documentos a Secretaría' : ''"
+                                  (click)="elegirArchivo(doc.key, file)">
+                            <mat-icon svgIcon="upload" class="size-3.5 mr-1" /> {{ doc.subida ? 'Reemplazar' : 'Subir firmado' }}
                           </button>
                         </div>
                       </div>
                     }
                     <input #file type="file" hidden accept=".pdf,.docx" (change)="onFile($event)" />
                   </div>
+
+                  @if (enviosCerrados()) {
+                    <p class="mt-2 text-[11px] text-slate-400">
+                      Ya enviaste tus documentos a Secretaría; no puedes reemplazarlos mientras los revisan.
+                    </p>
+                  }
+
+                  <!-- Confirmar el envío va justo bajo los documentos: es la acción que sigue
+                       a tenerlos listos, no un ítem más del trámite. -->
+                  @if (d.listoParaEnviar) {
+                    <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                      <span class="text-[11.5px] text-slate-500">
+                        {{ d.dictamenMotivoObservacion ? 'Documentos corregidos: listos para reenviar.' : 'Documentos listos para enviar a Secretaría.' }}
+                      </span>
+                      <button mat-flat-button class="!h-8 !text-xs !min-w-0 !px-3.5 !font-medium !bg-[#8C1D2E] !text-white shrink-0"
+                              [disabled]="enviando()" (click)="confirmarEnvio()">
+                        {{ d.dictamenMotivoObservacion ? 'Reenviar a Secretaría' : 'Enviar a Secretaría' }}
+                      </button>
+                    </div>
+                  }
                 </section>
+              }
+                </div>
               }
             </div>
           }
@@ -224,6 +253,7 @@ export class MiAsesoriaComponent implements OnInit {
   protected loading = signal(true);
   protected descargando = signal(false);
   protected subiendo = signal(false);
+  protected enviando = signal(false);
   protected msg = signal<string | null>(null);
   protected err = signal<string | null>(null);
 
@@ -297,13 +327,20 @@ export class MiAsesoriaComponent implements OnInit {
         out.push({ icon: 'badge-check', color: 'text-emerald-600', descargar: true,
                    texto: `Dictamen de designación emitido${d.dictamenNumero ? ' · N° ' + d.dictamenNumero : ''}.` });
       } else if (d.dictamenMotivoObservacion) {
-        out.push({ icon: 'circle-x', color: 'text-rose-500',
-                   texto: `Dictamen observado: ${d.dictamenMotivoObservacion} — vuelve a subir los documentos.` });
+        out.push(d.listoParaEnviar
+          ? { icon: 'circle-x', color: 'text-rose-500',
+              texto: `Dictamen observado: ${d.dictamenMotivoObservacion} — ya puedes reenviar lo corregido, abajo en Documentos.` }
+          : { icon: 'circle-x', color: 'text-rose-500',
+              texto: `Dictamen observado: ${d.dictamenMotivoObservacion} — vuelve a subir los documentos.` });
+      } else if (d.listoParaEnviar) {
+        out.push({ icon: 'send', color: 'text-[#8C1D2E]',
+                   texto: 'Documentos firmados listos: confirma el envío abajo, en Documentos.' });
+      } else if (d.solicitudFirmadaSubida && d.cartaFirmadaSubida) {
+        out.push({ icon: 'stamp', color: 'text-slate-300',
+                   texto: 'Secretaría está elaborando tu dictamen de designación.' });
       } else {
         out.push({ icon: 'stamp', color: 'text-slate-300',
-                   texto: (d.solicitudFirmadaSubida && d.cartaFirmadaSubida)
-                     ? 'Secretaría está elaborando tu dictamen de designación.'
-                     : 'Sube los dos firmados y Secretaría emitirá tu dictamen.' });
+                   texto: 'Sube los dos firmados y confírmalos para enviarlos a Secretaría.' });
       }
     }
     return out;
@@ -379,6 +416,15 @@ export class MiAsesoriaComponent implements OnInit {
   hayDocumentos(d: MiAsesoria): boolean {
     return !!d.asesorNombre;
   }
+
+  /**
+   * Ya se confirmó el envío a Secretaría: no se puede reemplazar el archivo por debajo mientras
+   * lo revisan o ya se resolvió. Solo se reabre si Secretaría observa el dictamen.
+   */
+  protected enviosCerrados = computed(() => {
+    const estado = this.data()?.dictamenEstado;
+    return !!estado && estado !== 'OBSERVADO';
+  });
 
   /**
    * Puesto de la solicitud: manda lo que indicó el tutor al sugerirlo; si la sugerencia es
@@ -476,12 +522,24 @@ export class MiAsesoriaComponent implements OnInit {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    this.subiendo.set(true);
-    this.err.set(null);
-    this._svc.subirFirmado$(this.subiendoTipo, file).subscribe({
-      next: () => { this.subiendo.set(false); this.msg.set('Documento firmado subido correctamente.'); this.cargar(); },
-      error: (e) => { this.subiendo.set(false); this.err.set(e?.error?.message ?? 'No se pudo subir el archivo (usa PDF o Word).'); },
-    });
+
+    const doc = this.documentos().find((x) => x.key === this.subiendoTipo);
+    // Subir reemplaza lo que hubiera antes: se confirma en vez de subirlo apenas se elige el archivo.
+    this._confirm.confirmSave({
+      title: doc?.subida ? 'Reemplazar el documento firmado' : 'Subir el documento firmado',
+      message: `Se subirá «${file.name}» como ${doc?.label ?? 'documento'} firmado. Al confirmar:`,
+      details: doc?.subida
+        ? ['reemplaza el archivo que habías subido antes', 'tu asesor lo verá firmado de inmediato']
+        : ['queda registrado como firmado', 'tu asesor lo verá de inmediato'],
+      confirmLabel: doc?.subida ? 'Reemplazar' : 'Subir documento',
+    }).then(() => {
+      this.subiendo.set(true);
+      this.err.set(null);
+      this._svc.subirFirmado$(this.subiendoTipo, file).subscribe({
+        next: () => { this.subiendo.set(false); this.msg.set('Documento firmado subido correctamente.'); this.cargar(); },
+        error: (e) => { this.subiendo.set(false); this.err.set(e?.error?.message ?? 'No se pudo subir el archivo (usa PDF o Word).'); },
+      });
+    }).catch(() => {});
   }
 
   verDictamen(): void {
@@ -491,5 +549,31 @@ export class MiAsesoriaComponent implements OnInit {
       next: (blob) => { previsualizarBlob(this._dialog, blob, 'Dictamen de designación de asesor'); this.descargando.set(false); },
       error: () => { this.err.set('No se pudo descargar el dictamen'); this.descargando.set(false); },
     });
+  }
+
+  /**
+   * Confirma el envío de los documentos a Secretaría. No es automático: subir ambos firmados
+   * solo los deja listos, este paso es el que realmente los pone en la bandeja de Secretaría.
+   */
+  confirmarEnvio(): void {
+    if (this.enviando()) return;
+    const observado = !!this.data()?.dictamenMotivoObservacion;
+    this._confirm.confirmSave({
+      title: observado ? 'Reenviar los documentos corregidos' : 'Enviar tus documentos a Secretaría',
+      message: 'Al confirmar:',
+      details: [
+        'la solicitud y la carta de aceptación firmadas quedan enviadas',
+        'Secretaría elaborará tu dictamen de designación',
+        'si necesitas corregir algo, tendrás que esperar a que lo observen',
+      ],
+      confirmLabel: observado ? 'Reenviar' : 'Enviar',
+    }).then(() => {
+      this.enviando.set(true);
+      this.err.set(null);
+      this._svc.enviarDocumentos$().subscribe({
+        next: () => { this.enviando.set(false); this.msg.set('Documentos enviados a Secretaría.'); this.cargar(); },
+        error: (e) => { this.enviando.set(false); this.err.set(e?.error?.message ?? 'No se pudo enviar'); },
+      });
+    }).catch(() => {});
   }
 }

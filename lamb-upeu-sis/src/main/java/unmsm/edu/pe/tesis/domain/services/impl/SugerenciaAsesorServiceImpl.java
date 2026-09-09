@@ -111,15 +111,18 @@ public class SugerenciaAsesorServiceImpl implements SugerenciaAsesorService {
             throw new BusinessException("Ese asesor ya está sugerido para este estudiante");
         }
 
-        // La tesis lleva UN asesor y, opcionalmente, UN co-asesor: se sugiere un docente por
-        // puesto. Para proponer a otro hay que quitar antes la sugerencia vigente de ese puesto.
+        // El tutor puede sugerir varios candidatos por puesto: el doctorando decide a cuál
+        // solicitar (y si lo rechazan, pedir a otro de la terna). Lo único que cierra el
+        // puesto es que ya exista una designación vigente; sugerir más candidatos después
+        // de eso no tendría a quién ofrecérselos.
         TipoAsesoria tipo = request.getTipo() != null ? request.getTipo() : TipoAsesoria.ASESOR;
-        boolean puestoOcupado = sugerenciaRepository.listarPorEstudiante(estudianteId).stream()
-                .anyMatch(x -> x.tipoEfectivo() == tipo);
-        if (puestoOcupado) {
+        Tesis tema = tesisRepository.tesisActivaDeEstudiante(estudianteId).orElse(null);
+        boolean puestoDesignado = tema != null
+                && asesoriaRepository.buscarPorTesisYTipo(tema.getId(), tipo.name()).isPresent();
+        if (puestoDesignado) {
             throw new BusinessException(tipo == TipoAsesoria.COASESOR
-                    ? "Ya hay un co-asesor sugerido para este estudiante; quítalo si deseas proponer a otro"
-                    : "Ya hay un asesor sugerido para este estudiante; quítalo si deseas proponer a otro");
+                    ? "Ya hay un co-asesor designado para este estudiante"
+                    : "Ya hay un asesor designado para este estudiante");
         }
 
         SugerenciaAsesor s = sugerenciaRepository.save(SugerenciaAsesor.builder()

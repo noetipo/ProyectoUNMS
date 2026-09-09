@@ -79,6 +79,15 @@ public class MiAsesoriaResource {
         }
     }
 
+    @POST
+    @Path("/documentos/enviar")
+    @Operation(summary = "Confirma el envío de los documentos firmados a Secretaría")
+    public Response enviarDocumentos() {
+        guard();
+        service.enviarDocumentosFirmados();
+        return Response.ok(ApiResponse.success("Documentos enviados a Secretaría")).build();
+    }
+
     @GET
     @Path("/dictamen")
     @Produces(MediaType.WILDCARD)

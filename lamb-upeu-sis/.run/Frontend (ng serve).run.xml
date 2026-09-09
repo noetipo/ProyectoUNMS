@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Frontend (ng serve)" type="js.build_tools.npm" nameIsGenerated="false">
+    <package-json value="$PROJECT_DIR$/../themeforest-Fj3VzBCp-fuse-angularjs-material-design-admin-template/fuse/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="ng" />
+    </scripts>
+    <arguments value="-- serve --no-hmr --port=4200" />
+    <node-interpreter value="project" />
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>

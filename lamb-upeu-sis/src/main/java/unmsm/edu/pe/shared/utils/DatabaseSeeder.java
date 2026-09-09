@@ -259,12 +259,21 @@ public class DatabaseSeeder {
                         "/admin/coordinador-proyecto", 13, "05"),
                 new ModuleData("46", "Revisión de proyectos (revisor)", "basic", "heroicons_outline:clipboard-document-list",
                         "/admin/revisor-proyecto", 14, "05"),
+                // Tramo final de la Etapa 5: rúbricas de la defensa, dictamen de aprobación y archivo.
+                new ModuleData("53", "Cierre del proyecto", "basic", "heroicons_outline:check-badge",
+                        "/admin/cierre-proyecto", 15, "05"),
                 // ── Etapa 6 · Ejecución de la tesis ──
                 new ModuleData("47", "Ejecución de la tesis", "basic", "heroicons_outline:rocket-launch",
-                        "/admin/ejecucion-tesis", 15, "05"),
+                        "/admin/ejecucion-tesis", 16, "05"),
                 // ── Etapa 7 · Jurado Informante ──
                 new ModuleData("48", "Jurado Informante (informe)", "basic", "heroicons_outline:document-check",
-                        "/admin/jurado-informe", 16, "05"),
+                        "/admin/jurado-informe", 17, "05"),
+                // Trámite del Jurado Informante y Dictamen de Expedito (lo lleva la Secretaría).
+                new ModuleData("54", "Jurado Informante (trámite)", "basic", "heroicons_outline:archive-box",
+                        "/admin/jurado-informante", 18, "05"),
+                // ── Etapa 8 · Sustentación de la tesis (la última) ──
+                new ModuleData("55", "Sustentación de tesis", "basic", "heroicons_outline:academic-cap",
+                        "/admin/sustentacion", 19, "05"),
                 // ── Seguimiento transversal (secretaría/coordinación) ──
                 new ModuleData("49", "Seguimiento de alumnos", "basic", "heroicons_outline:chart-bar",
                         "/admin/seguimiento-alumnos", 2, "05"),
@@ -339,8 +348,8 @@ public class DatabaseSeeder {
         Map<String, List<String>> matriz = new LinkedHashMap<>();
         // Quien tiene "Registro de Tema" (33) NO lleva "Asignar Tutor" (30) en el menú: designa
         // desde ahí (individual) o con el botón "Asignar en bloque" de esa misma pantalla.
-        matriz.put("ADMIN", List.of("01", "03", "04", "05", "20", "21", "22", "24", "25", "26", "35", "36", "37", "31", "33", "38", "44", "45", "46", "47", "48", "49", "52"));
-        matriz.put("SECRETARIA", List.of("20", "21", "22", "24", "25", "26", "35", "36", "37", "31", "33", "38", "44", "49", "52")); // + seguimiento y rúbricas oficiales
+        matriz.put("ADMIN", List.of("01", "03", "04", "05", "20", "21", "22", "24", "25", "26", "35", "36", "37", "31", "33", "38", "44", "45", "46", "47", "48", "49", "52", "53", "54", "55"));
+        matriz.put("SECRETARIA", List.of("20", "21", "22", "24", "25", "26", "35", "36", "37", "31", "33", "38", "44", "49", "52", "53", "54", "55")); // + seguimiento, rúbricas oficiales, cierre, jurado informante y sustentación
         matriz.put("COORDINADOR", List.of("21", "22", "35", "36", "37", "31", "33", "45", "49", "52"));
         // El doctorando ve SOLO su perfil y "Mi tesis" (pestañas: avance · proyecto · asesoría).
         matriz.put("ESTUDIANTE", List.of("50", "51"));

@@ -46,4 +46,9 @@ export class MiAsesoriaService {
   descargarDictamen$(): Observable<Blob> {
     return this._http.get(`${this.base}/dictamen`, { responseType: 'blob' });
   }
+
+  /** Confirma el envío a Secretaría de los documentos firmados (paso explícito, no automático). */
+  enviarDocumentos$(): Observable<any> {
+    return this._http.post<any>(`${this.base}/documentos/enviar`, {});
+  }
 }
